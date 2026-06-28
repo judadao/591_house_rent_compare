@@ -197,6 +197,37 @@ test("rent diff ignores stale rentPerPing and recalculates unit rent from monthl
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, -17.2);
 });
 
+test("rent estimate includes same-radius listings even when parsed district differs", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "新北市",
+    district: "板橋區",
+    area: 13,
+    monthlyRent: 16999,
+    latitude: 25.017,
+    longitude: 121.476
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    {
+      ...baseRent,
+      id: "near-16ping-other-district",
+      district: "中和區",
+      area: 16,
+      monthlyRent: 24000,
+      latitude: 25.0233,
+      longitude: 121.476
+    }
+  ], {
+    rentAreaMinusPing: 2,
+    rentAreaPlusPing: 3.5,
+    rentEstimateRadiusKm: 10
+  });
+
+  assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["near-16ping-other-district"]);
+  assert.equal(result.rent.estimateCount, 1);
+});
+
 test("does not estimate when current listing area is unknown", () => {
   const baseRent = {
     mode: "rent",

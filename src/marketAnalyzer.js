@@ -387,10 +387,10 @@
       ? areaScopedItems.filter((item) => rentRadiusMatch(base, item, options))
       : areaScopedItems;
     const displayComparables = comparableRankedItems(base, scopedItems).slice(0, 20);
-    const calculationComparables = comparableRankedItems(
-      base,
-      estimateScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }))
-    );
+    const calculationItems = base.mode === "rent"
+      ? estimateScopedItems.filter((item) => item.mode === base.mode && Number.isFinite(primaryValue(item)))
+      : estimateScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }));
+    const calculationComparables = comparableRankedItems(base, calculationItems);
     const calculationKeys = new Set(calculationComparables.map((item) => item.id || item.url || JSON.stringify(item)));
     const comparables = displayComparables
       .map((item) => ({
