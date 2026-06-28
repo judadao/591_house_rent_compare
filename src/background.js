@@ -117,7 +117,7 @@ const analyzeNearby = async (listing, requestedMode = "") => {
   let scraped = [];
   const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
   for (const mode of modes) {
-    for (const source of marketSearchUrls(listing, mode)) {
+    for (const source of marketSearchUrls(listing, mode).slice(0, 4)) {
       try {
         scraped = scraped.concat(await scrapeSearchTab(source));
       } catch {
@@ -137,18 +137,12 @@ const pollWatchlist = async () => {
   const watchlist = data[polling.WATCHLIST_KEY] || [];
   let pollState = data[polling.POLL_STATE_KEY] || {};
   const due = polling.dueWatches(watchlist, pollState);
-  let scraped = 0;
-  let added = 0;
-
-  for (const watch of due.slice(0, 5)) {
-    const result = await analyzeNearby(watch.listing, watch.analysisMode);
-    scraped += result.scraped;
-    added += result.added;
+  for (const watch of due) {
     pollState = polling.markPolled(pollState, watch);
   }
 
   await chrome.storage.local.set({ [polling.POLL_STATE_KEY]: pollState });
-  return { checked: due.length, scraped, added };
+  return { checked: due.length, scraped: 0, added: 0 };
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

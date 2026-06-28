@@ -29,8 +29,8 @@ The panel summarizes the market by location first, then comparable conditions:
 - Shows price by age bucket, same-size listings, and listings matching extra conditions such as building type, room count, elevator, and parking.
 - Sale prices and transaction prices are displayed separately.
 
-The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. Automatic analysis opens normal background search tabs for current listing conditions, collects visible results, then closes those tabs.
-Analyzed listings are kept in a local watchlist. The background worker polls watched conditions every 3 hours to refresh local market data.
+The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. The panel reads local data automatically; network collection only runs when you click **分析附近行情**.
+Analyzed listings are kept in a local watchlist. The background worker tracks polling intervals without opening search tabs automatically.
 
 ## Development
 

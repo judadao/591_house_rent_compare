@@ -160,30 +160,30 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.ok(action);
   action.click();
   await flush();
-  assert.equal(chrome.sentMessages.length, 2);
+  assert.equal(chrome.sentMessages.length, 1);
   assert.equal(chrome.sentMessages.at(-1).type, "ANALYZE_NEARBY");
   assert.equal(chrome.sentMessages.at(-1).analysisMode, "rent");
   assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /已收集 3 筆/);
 });
 
-test("empty market sections include clickable inline analyze buttons", async () => {
+test("empty market sections still keep a single analyze button", async () => {
   const { dom, chrome } = await loadContentScript();
   chrome.storage.listings = [];
   chrome.storage.analysisTimestamps = { "analysis:123:sale": Date.now() };
   chrome.api.__dispatch({ type: "TOGGLE_PANEL" });
   await flush();
 
-  const inlineAction = dom.window.document.querySelector(".hmk-inline-action");
-  assert.ok(inlineAction);
-  assert.match(inlineAction.textContent, /分析附近行情/);
+  const actions = dom.window.document.querySelectorAll(".hmk-action");
+  assert.equal(actions.length, 1);
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /按上方/);
 
-  inlineAction.click();
+  actions[0].click();
   await flush();
   assert.equal(chrome.sentMessages.length, 1);
   assert.equal(chrome.sentMessages[0].type, "ANALYZE_NEARBY");
 });
 
-test("opening the panel schedules background analysis when cache is stale", async () => {
+test("opening the panel does not automatically trigger network analysis", async () => {
   const { chrome } = await loadContentScript();
   chrome.storage.analysisTimestamps = {};
 
@@ -191,6 +191,5 @@ test("opening the panel schedules background analysis when cache is stale", asyn
   await flush();
   await flush();
 
-  assert.equal(chrome.sentMessages.length, 1);
-  assert.equal(chrome.sentMessages[0].type, "ANALYZE_NEARBY");
+  assert.equal(chrome.sentMessages.length, 0);
 });

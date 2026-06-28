@@ -196,7 +196,7 @@ const marketBucketHtml = (bucket, mode) => {
       ${
         hasData
           ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
-          : `<p class="hmk-muted">目前本機資料不足，按下方按鈕自動抓附近行情。</p><button class="hmk-action hmk-inline-action">分析附近行情</button>`
+          : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${marketSliceHtml(slice, mode)}
       <ol>
@@ -298,11 +298,7 @@ const renderInPagePanel = async (statusText = "") => {
     });
   });
 
-  requestNearbyAnalysis(current, panelMode).then((response) => {
-    if (response?.ok && !response.skipped && response.scraped > 0) {
-      renderInPagePanel(`背景已更新：收集 ${response.scraped} 筆，新增 ${response.added} 筆。`).catch(() => {});
-    }
-  }).catch(() => {});
+  // Automatic panel rendering only reads local data. Network collection is manual to avoid opening background tabs unexpectedly.
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
