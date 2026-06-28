@@ -3,6 +3,7 @@ if (globalThis.__rentCompareContentScriptLoaded) return;
 globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
+const analyzer = globalThis.RentCompareMarketAnalyzer;
 
 const text = (node) => (node ? node.textContent.replace(/\s+/g, " ").trim() : "");
 
@@ -53,6 +54,7 @@ const scrapeCurrentListing = () => {
       description,
       price,
       url: location.href,
+      source: location.hostname,
       address: jsonLd.address?.streetAddress || bodyText.match(/地址[:：]?\s*([^\n。]{6,80})/)?.[1] || ""
     },
     location.href
@@ -77,6 +79,7 @@ const scrapeListCards = () => {
         {
           id: parser.listingIdFromUrl(url),
           url,
+          source: location.hostname,
           title: text(anchor) || cardText.slice(0, 70),
           description: cardText,
           price: parser.numberFrom(cardText.match(/([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]),
@@ -86,6 +89,109 @@ const scrapeListCards = () => {
       );
     })
     .filter((item) => item && item.price && item.area);
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const currency = (value) => (Number.isFinite(value) ? `$${Math.round(value).toLocaleString("zh-TW")}` : "-");
+const wan = (value) => (Number.isFinite(value) ? `${Math.round(value).toLocaleString("zh-TW")} 萬` : "-");
+const unitWan = (value) => (Number.isFinite(value) ? `${Math.round(value * 10) / 10} 萬/坪` : "-");
+const ping = (value) => (Number.isFinite(value) ? `${Number(value).toFixed(1)} 坪` : "-");
+
+const panelStyles = `
+  #hmk-panel{position:fixed;right:16px;top:88px;z-index:2147483647;width:340px;max-height:78vh;overflow:auto;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1f2933;box-shadow:0 16px 40px rgba(15,23,42,.22);font:13px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  #hmk-panel header{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px;background:#1f5f5b;color:#fff}
+  #hmk-panel h2,#hmk-panel h3,#hmk-panel p{margin:0}
+  #hmk-panel h2{font-size:15px}
+  #hmk-panel h3{font-size:13px;margin:10px 0 5px}
+  #hmk-panel button{border:0;border-radius:6px;padding:7px 9px;cursor:pointer;font-weight:650}
+  #hmk-panel .hmk-close{background:rgba(255,255,255,.16);color:#fff}
+  #hmk-panel .hmk-body{padding:10px 12px}
+  #hmk-panel .hmk-current{margin-bottom:8px;color:#475569}
+  #hmk-panel .hmk-action{width:100%;margin:8px 0;background:#236f68;color:#fff}
+  #hmk-panel .hmk-muted{color:#64748b}
+  #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
+  #hmk-panel strong{color:#0f766e}
+  #hmk-panel ol{margin:6px 0 0;padding-left:18px}
+  #hmk-panel li{margin-bottom:6px}
+  #hmk-panel a{color:#1d4ed8;text-decoration:none;font-weight:650}
+`;
+
+const marketBucketHtml = (bucket, mode) => {
+  const hasData = bucket.count > 0;
+  const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
+  const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
+  const diff =
+    bucket.diffPercent === null
+      ? ""
+      : bucket.diffPercent >= 0
+        ? `偏高 ${Math.abs(bucket.diffPercent).toFixed(1)}%`
+        : `偏低 ${Math.abs(bucket.diffPercent).toFixed(1)}%`;
+
+  return `
+    <section class="hmk-report">
+      <h3>${escapeHtml(bucket.label)}</h3>
+      ${
+        hasData
+          ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
+          : `<p class="hmk-muted">目前本機資料不足，按下方按鈕自動抓附近行情。</p>`
+      }
+      <ol>
+        ${bucket.comparables
+          .slice(0, 4)
+          .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml(item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`)}</span></li>`)
+          .join("")}
+      </ol>
+    </section>
+  `;
+};
+
+const renderInPagePanel = async (statusText = "") => {
+  if (!analyzer || !chrome?.storage?.local) return;
+  const current = scrapeCurrentListing();
+  const data = await chrome.storage.local.get({ listings: [], options: {} });
+  const report = analyzer.analyzeMarket(current, data.listings || [], data.options || {});
+  const buckets = current.mode === "sale" ? [report.listing, report.transaction] : [report.rent];
+
+  let panel = document.querySelector("#hmk-panel");
+  if (!panel) {
+    const style = document.createElement("style");
+    style.textContent = panelStyles;
+    document.documentElement.appendChild(style);
+    panel = document.createElement("aside");
+    panel.id = "hmk-panel";
+    document.documentElement.appendChild(panel);
+  }
+
+  panel.innerHTML = `
+    <header>
+      <div>
+        <h2>房價行情比較</h2>
+        <p>${escapeHtml(current.mode === "sale" ? "買房：開價與實價分開看" : "租屋：附近租金行情")}</p>
+      </div>
+      <button class="hmk-close" title="關閉">×</button>
+    </header>
+    <div class="hmk-body">
+      <p class="hmk-current">${escapeHtml([current.city, current.district, current.buildingType || current.type, ping(current.area)].filter(Boolean).join(" / "))}</p>
+      <button class="hmk-action">分析附近行情</button>
+      ${statusText ? `<p class="hmk-muted">${escapeHtml(statusText)}</p>` : ""}
+      ${buckets.map((bucket) => marketBucketHtml(bucket, current.mode)).join("")}
+    </div>
+  `;
+
+  panel.querySelector(".hmk-close").addEventListener("click", () => panel.remove());
+  panel.querySelector(".hmk-action").addEventListener("click", async () => {
+    panel.querySelector(".hmk-action").disabled = true;
+    panel.querySelector(".hmk-action").textContent = "分析中...";
+    const response = await chrome.runtime.sendMessage({ type: "ANALYZE_NEARBY", listing: current });
+    await renderInPagePanel(response?.ok ? `已收集 ${response.scraped} 筆，新增 ${response.added} 筆。` : `分析失敗：${response?.error || "未知錯誤"}`);
+  });
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -101,4 +207,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   return false;
 });
+
+if (!/lvr\.land\.moi/.test(location.hostname)) {
+  setTimeout(() => {
+    renderInPagePanel().catch(() => {});
+  }, 800);
+}
 })();

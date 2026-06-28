@@ -1,18 +1,35 @@
 {
   "manifest_version": 3,
-  "name": "591 Rent Compare",
-  "description": "Collect 591 rental listings while browsing and compare similar homes in the same area.",
-  "version": "0.3.0",
+  "name": "House Market Compare",
+  "description": "Analyze sale and rent listings against asking-price and transaction market benchmarks.",
+  "version": "0.4.0",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
-  "host_permissions": ["*://*.591.com.tw/*", "*://591.com.tw/*"],
+  "host_permissions": [
+    "*://*.591.com.tw/*",
+    "*://591.com.tw/*",
+    "*://*.rakuya.com.tw/*",
+    "*://*.sinyi.com.tw/*",
+    "*://*.housefun.com.tw/*",
+    "*://lvr.land.moi.gov.tw/*"
+  ],
   "action": {
-    "default_title": "591 Rent Compare",
+    "default_title": "House Market Compare",
     "default_popup": "src/popup.html"
+  },
+  "background": {
+    "service_worker": "src/background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.591.com.tw/*", "*://591.com.tw/*"],
-      "js": ["src/listingParser.js", "src/contentScript.js"],
+      "matches": [
+        "*://*.591.com.tw/*",
+        "*://591.com.tw/*",
+        "*://*.rakuya.com.tw/*",
+        "*://*.sinyi.com.tw/*",
+        "*://*.housefun.com.tw/*",
+        "*://lvr.land.moi.gov.tw/*"
+      ],
+      "js": ["src/listingParser.js", "src/marketAnalyzer.js", "src/contentScript.js"],
       "run_at": "document_idle"
     }
   ]

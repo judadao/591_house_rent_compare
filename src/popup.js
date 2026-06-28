@@ -9,11 +9,12 @@ const DEFAULT_OPTIONS = {
 
 const state = {
   current: null,
-  listings: [],
+  items: [],
   options: { ...DEFAULT_OPTIONS }
 };
 
 const parser = globalThis.RentCompareParser;
+const analyzer = globalThis.RentCompareMarketAnalyzer;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -24,6 +25,8 @@ const escapeHtml = (value) =>
     .replaceAll("'", "&#039;");
 
 const currency = (value) => (Number.isFinite(value) ? `$${Math.round(value).toLocaleString("zh-TW")}` : "-");
+const wan = (value) => (Number.isFinite(value) ? `${Math.round(value).toLocaleString("zh-TW")} 萬` : "-");
+const unitWan = (value) => (Number.isFinite(value) ? `${Math.round(value * 10) / 10} 萬/坪` : "-");
 const ping = (value) => (Number.isFinite(value) ? `${Number(value).toFixed(1)} 坪` : "-");
 const boolText = (value) => (value ? "有" : "未判斷");
 
@@ -35,7 +38,7 @@ const setStatus = (message, isError = false) => {
 
 const storageGet = () =>
   chrome.storage.local.get({ listings: [], options: DEFAULT_OPTIONS }).then((data) => ({
-    listings: data.listings || [],
+    items: data.listings || [],
     options: { ...DEFAULT_OPTIONS, ...(data.options || {}) }
   }));
 
@@ -45,26 +48,27 @@ const storageSetOptions = (options) => chrome.storage.local.set({ options });
 const qualityIssues = (listing) => {
   if (!listing) return ["尚未讀取物件"];
   const issues = [];
-  if (!listing.price) issues.push("缺租金");
+  if (listing.mode === "sale" && !listing.totalPrice && !listing.pricePerPing) issues.push("缺買賣價格");
+  if (listing.mode === "rent" && !listing.monthlyRent) issues.push("缺租金");
   if (!listing.area) issues.push("缺坪數");
   if (!listing.city || !listing.district) issues.push("缺區域");
-  if (!listing.type) issues.push("缺型態");
-  if (!listing.rooms && listing.type === "整層住家") issues.push("缺房數");
+  if (!listing.type && !listing.buildingType) issues.push("缺型態");
+  if (!listing.rooms && (listing.type === "整層住家" || listing.mode === "sale")) issues.push("缺房數");
   return issues;
 };
 
-const upsertListings = async (items) => {
-  const existing = state.listings.length ? state.listings : (await storageGet()).listings;
+const upsertItems = async (items) => {
+  const existing = state.items.length ? state.items : (await storageGet()).items;
   const byId = new Map(existing.map((item) => [item.id || item.url, item]));
 
   for (const item of items) {
-    if (!item?.url || !item?.price) continue;
+    if (!item?.url || (!item?.price && !item?.totalPrice && !item?.monthlyRent)) continue;
     byId.set(item.id || item.url, { ...byId.get(item.id || item.url), ...item });
   }
 
   const next = [...byId.values()].sort((a, b) => Date.parse(b.collectedAt) - Date.parse(a.collectedAt));
   await storageSetListings(next);
-  state.listings = next;
+  state.items = next;
   render();
   return next.length - existing.length;
 };
@@ -77,14 +81,16 @@ const activeTab = async () => {
 const sendToActiveTab = async (type) => {
   const tab = await activeTab();
   if (!tab?.id) throw new Error("找不到目前分頁");
-  if (!tab.url?.includes("591.com.tw")) throw new Error("請先開啟 591 租屋頁面");
+  if (!/(591|rakuya|sinyi|housefun|lvr\.land\.moi)/.test(tab.url || "")) {
+    throw new Error("請先開啟支援的房屋網站頁面");
+  }
 
   try {
     return await chrome.tabs.sendMessage(tab.id, { type });
   } catch {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["src/listingParser.js", "src/contentScript.js"]
+      files: ["src/listingParser.js", "src/marketAnalyzer.js", "src/contentScript.js"]
     });
     return chrome.tabs.sendMessage(tab.id, { type });
   }
@@ -111,7 +117,7 @@ const waitForTabComplete = (tabId, timeoutMs = 12000) =>
 const scrapeTab = async (tabId, type) => {
   await chrome.scripting.executeScript({
     target: { tabId },
-    files: ["src/listingParser.js", "src/contentScript.js"]
+    files: ["src/listingParser.js", "src/marketAnalyzer.js", "src/contentScript.js"]
   });
   return chrome.tabs.sendMessage(tabId, { type });
 };
@@ -119,6 +125,26 @@ const scrapeTab = async (tabId, type) => {
 const marketSearchUrl = () => {
   if (!state.current) return "";
   return parser.buildMarketSearchUrl(state.current);
+};
+
+const marketSearchUrls = () => {
+  if (!state.current) return [];
+  const base = state.current;
+  const keywords = parser.buildMarketSearchKeywords(base);
+  const urls = [];
+  const add = (label, url, marketKind = "listing") => urls.push({ label, url, marketKind });
+
+  if (base.mode === "sale") {
+    add("591 買屋開價", parser.buildMarketSearchUrl({ ...base, mode: "sale" }), "listing");
+    add("樂屋買屋開價", `https://www.rakuya.com.tw/search/sale?keyword=${encodeURIComponent(keywords)}`, "listing");
+    add("信義買屋開價", `https://www.sinyi.com.tw/buy/list/${encodeURIComponent(keywords)}-keyword`, "listing");
+    add("實價登錄", `https://lvr.land.moi.gov.tw/`, "transaction");
+  } else {
+    add("591 租屋", parser.buildMarketSearchUrl({ ...base, mode: "rent" }), "listing");
+    add("樂屋租屋", `https://www.rakuya.com.tw/search/rent?keyword=${encodeURIComponent(keywords)}`, "listing");
+  }
+
+  return urls;
 };
 
 const renderFacts = () => {
@@ -135,10 +161,11 @@ const renderFacts = () => {
 
   facts.innerHTML = [
     ["標題", listing.title || "-"],
-    ["租金", `${currency(listing.price)} / 月`],
+    ["模式", listing.mode === "sale" ? "買房" : "租屋"],
+    ["價格", listing.mode === "sale" ? `${wan(listing.totalPrice)} / ${unitWan(listing.pricePerPing)}` : `${currency(listing.monthlyRent)} / 月`],
     ["坪數", ping(listing.area)],
     ["區域", [listing.city, listing.district].filter(Boolean).join("") || "-"],
-    ["型態", listing.type || "-"],
+    ["型態", listing.buildingType || listing.type || "-"],
     ["格局", listing.rooms ? `${listing.rooms} 房` : "-"],
     ["樓層", listing.floor && listing.totalFloors ? `${listing.floor}/${listing.totalFloors} 樓` : "-"],
     ["設備", [`電梯:${boolText(listing.hasElevator)}`, `車位:${boolText(listing.hasParking)}`].join(" ")]
@@ -151,82 +178,58 @@ const renderFacts = () => {
   quality.className = issues.length ? "quality warn" : "quality ok";
 };
 
-const comparableScore = (base, item) => {
-  let score = 0;
-  if (base.district && item.district === base.district) score += 6;
-  if (base.city && item.city === base.city) score += 3;
-  if (base.type && item.type === base.type) score += 3;
-  if (base.rooms && item.rooms === base.rooms) score += 2;
-  if (base.hasElevator && item.hasElevator) score += 1;
-  if (base.area && item.area) score -= Math.abs(item.area - base.area) / base.area;
-  return score;
-};
-
-const findComparables = () => {
-  const base = state.current;
-  if (!base) return [];
-  const tolerance = Number(state.options.areaTolerance);
-  const areaMin = base.area ? base.area * (1 - tolerance) : 0;
-  const areaMax = base.area ? base.area * (1 + tolerance) : Infinity;
-
-  return state.listings
-    .filter((item) => item.url !== base.url)
-    .filter((item) => !base.city || !item.city || item.city === base.city)
-    .filter((item) => !state.options.matchDistrict || !base.district || !item.district || item.district === base.district)
-    .filter((item) => !state.options.matchType || !base.type || !item.type || item.type === base.type)
-    .filter((item) => !state.options.matchRooms || !base.rooms || !item.rooms || item.rooms === base.rooms)
-    .filter((item) => !base.area || !item.area || (item.area >= areaMin && item.area <= areaMax))
-    .sort((a, b) => comparableScore(base, b) - comparableScore(base, a))
-    .slice(0, 10);
-};
-
-const median = (values) => {
-  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
-  if (!sorted.length) return null;
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-};
-
 const renderComparison = () => {
-  const summary = $("#summary");
-  const list = $("#comparables");
+  const reports = $("#marketReports");
   const base = state.current;
-  const comparables = findComparables();
 
   if (!base) {
-    summary.textContent = "開啟 591 物件頁後可比較。";
-    list.innerHTML = "";
+    reports.innerHTML = `<div class="summary">開啟支援的房屋物件頁後可分析。</div>`;
     return;
   }
 
-  if (!comparables.length) {
-    summary.textContent = "尚無足夠的同條件資料。先到 591 搜尋結果頁按「收集列表」。";
-    list.innerHTML = "";
-    return;
-  }
+  const report = analyzer.analyzeMarket(base, state.items, {
+    areaTolerance: state.options.areaTolerance,
+    matchDistrict: state.options.matchDistrict,
+    matchBuildingType: state.options.matchType,
+    matchRooms: state.options.matchRooms
+  });
 
-  const medianPrice = median(comparables.map((item) => item.price));
-  const medianUnit = median(comparables.map((item) => (item.area ? item.price / item.area : null)));
-  const baseUnit = base.area ? base.price / base.area : null;
-  const diff = medianPrice && base.price ? base.price - medianPrice : null;
-  const diffText = diff === null ? "" : diff >= 0 ? `高 ${currency(diff)}` : `低 ${currency(Math.abs(diff))}`;
+  const buckets = base.mode === "sale" ? [report.listing, report.transaction] : [report.rent];
+  reports.innerHTML = buckets.map(renderMarketBucket).join("");
+};
 
-  summary.innerHTML = [
-    `找到 <strong>${comparables.length}</strong> 筆相近物件。`,
-    `中位租金 <strong>${currency(medianPrice)}</strong>，每坪 <strong>${currency(medianUnit)}</strong>。`,
-    baseUnit ? `目前每坪 <strong>${currency(baseUnit)}</strong>。` : "",
-    diffText ? `總租金比中位數<strong>${diffText}</strong>。` : ""
-  ].join(" ");
+const renderMarketBucket = (bucket) => {
+  const hasData = bucket.count > 0;
+  const diff =
+    bucket.diffPercent === null
+      ? ""
+      : bucket.diffPercent >= 0
+        ? `偏高 ${Math.abs(bucket.diffPercent).toFixed(1)}%`
+        : `偏低 ${Math.abs(bucket.diffPercent).toFixed(1)}%`;
+  const unitText = state.current?.mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
+  const primaryText = state.current?.mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
 
-  list.innerHTML = comparables
-    .map((item) => {
-      const unit = item.area ? `${currency(item.price / item.area)}/坪` : "-";
-      const meta = [[item.city, item.district].filter(Boolean).join(""), item.type, ping(item.area), unit]
-        .filter(Boolean)
-        .join(" / ");
-      return `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || item.district || "物件")}</a><br><span>${escapeHtml(currency(item.price))} / ${escapeHtml(meta)}</span></li>`;
-    })
-    .join("");
+  return `
+    <article class="market-report">
+      <h3>${escapeHtml(bucket.label)}</h3>
+      ${
+        hasData
+          ? `<p class="summary">相似案例 <strong>${bucket.count}</strong> 筆，信心度 <strong>${escapeHtml(bucket.confidence)}</strong>。中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
+          : `<p class="summary">目前沒有足夠資料。請按「分析附近行情」自動補資料，或匯入/收集更多同區案例。</p>`
+      }
+      <ol class="comparables">
+        ${bucket.comparables.slice(0, 6).map(renderComparable).join("")}
+      </ol>
+    </article>
+  `;
+};
+
+const renderComparable = (item) => {
+  const priceText = item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`;
+  const meta = [[item.city, item.district].filter(Boolean).join(""), item.buildingType || item.type, ping(item.area), item.marketKind === "transaction" ? "成交" : "開價"]
+    .filter(Boolean)
+    .join(" / ");
+  return `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || item.district || "物件")}</a><br><span>${escapeHtml(priceText)} / ${escapeHtml(meta)} / 相似度 ${escapeHtml(item.similarityScore)}</span></li>`;
 };
 
 const renderOptions = () => {
@@ -240,7 +243,7 @@ const render = () => {
   renderFacts();
   renderComparison();
   renderOptions();
-  $("#storeCount").textContent = `${state.listings.length} 筆已收集`;
+  $("#storeCount").textContent = `${state.items.length} 筆已收集`;
 };
 
 const refreshCurrent = async () => {
@@ -260,7 +263,7 @@ const collectList = async () => {
     setStatus("收集本頁列表...");
     const response = await sendToActiveTab("SCRAPE_LIST");
     const listings = response?.listings || [];
-    const added = await upsertListings(listings);
+    const added = await upsertItems(listings);
     setStatus(`已收集 ${listings.length} 筆可用資料，新增 ${added} 筆。`);
   } catch (error) {
     setStatus(`收集失敗：${error.message}`, true);
@@ -276,19 +279,25 @@ const autoMarketSearch = async () => {
     if (!url) throw new Error("目前物件缺少區域條件，無法組搜尋頁");
 
     setStatus("正在自動搜尋同區行情...");
-    await upsertListings([state.current]);
+    await upsertItems([state.current]);
 
-    const tab = await chrome.tabs.create({ url, active: false });
-    try {
-      await waitForTabComplete(tab.id);
-      await new Promise((resolve) => setTimeout(resolve, 1800));
-      const response = await scrapeTab(tab.id, "SCRAPE_LIST");
-      const listings = response?.listings || [];
-      const added = await upsertListings(listings);
-      setStatus(`已自動搜尋同區行情：收集 ${listings.length} 筆，新增 ${added} 筆。`);
-    } finally {
-      if (tab.id) await chrome.tabs.remove(tab.id);
+    let total = 0;
+    let addedTotal = 0;
+    for (const source of marketSearchUrls()) {
+      if (source.marketKind === "transaction") continue;
+      const tab = await chrome.tabs.create({ url: source.url, active: false });
+      try {
+        await waitForTabComplete(tab.id);
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        const response = await scrapeTab(tab.id, "SCRAPE_LIST");
+        const listings = (response?.listings || []).map((item) => ({ ...item, marketKind: source.marketKind }));
+        total += listings.length;
+        addedTotal += await upsertItems(listings);
+      } finally {
+        if (tab.id) await chrome.tabs.remove(tab.id);
+      }
     }
+    setStatus(`已分析附近行情：收集 ${total} 筆，新增 ${addedTotal} 筆。實價登錄區塊會和開價行情分開顯示。`);
   } catch (error) {
     setStatus(`自動搜尋失敗：${error.message}`, true);
   }
@@ -298,7 +307,7 @@ const openMarketSearch = async () => {
   try {
     if (!state.current) await refreshCurrent();
     if (!state.current) return;
-    const url = marketSearchUrl();
+    const url = marketSearchUrls()[0]?.url || marketSearchUrl();
     if (!url) throw new Error("目前物件缺少區域條件，無法組搜尋頁");
     await chrome.tabs.create({ url, active: true });
     setStatus("已開啟 591 同區行情搜尋頁。");
@@ -310,22 +319,22 @@ const openMarketSearch = async () => {
 const saveCurrent = async () => {
   if (!state.current) await refreshCurrent();
   if (!state.current) return;
-  await upsertListings([state.current]);
+  await upsertItems([state.current]);
   setStatus("已儲存目前物件。");
 };
 
 const clearStore = async () => {
   await storageSetListings([]);
-  state.listings = [];
+  state.items = [];
   render();
   setStatus("已清除本機資料。");
 };
 
 const exportCsv = () => {
-  const columns = ["title", "price", "area", "city", "district", "type", "rooms", "floor", "totalFloors", "url", "collectedAt"];
+  const columns = ["mode", "marketKind", "source", "title", "totalPrice", "pricePerPing", "monthlyRent", "rentPerPing", "area", "city", "district", "buildingType", "type", "rooms", "floor", "totalFloors", "url", "collectedAt"];
   const rows = [
     columns.join(","),
-    ...state.listings.map((item) =>
+    ...state.items.map((item) =>
       columns
         .map((column) => `"${String(item[column] ?? "").replaceAll('"', '""')}"`)
         .join(",")
@@ -335,7 +344,7 @@ const exportCsv = () => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `591-rent-listings-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.download = `house-market-items-${new Date().toISOString().slice(0, 10)}.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
 };
@@ -353,7 +362,7 @@ const saveOptionsFromUi = async () => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const stored = await storageGet();
-  state.listings = stored.listings;
+  state.items = stored.items;
   state.options = stored.options;
   render();
   await refreshCurrent();

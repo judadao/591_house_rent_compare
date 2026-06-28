@@ -14,6 +14,10 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - [x] Add CSV export for collected local listings.
 - [x] Add a one-click same-area market search button.
 - [x] Add a manual button to open the generated 591 market search page.
+- [x] Add sale/rent mode normalization.
+- [x] Separate sale asking-price market from transaction market.
+- [x] Add in-page auto-display market panel.
+- [x] Add background analysis request flow for the in-page panel.
 - [x] Add Node-based parser tests and syntax checks.
 
 ## Testing Direction
@@ -22,6 +26,7 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - Popup and content scripts receive syntax checks with `node --check`.
 - Manual browser testing should cover a 591 detail page, a 591 search results page, and a non-591 page error state.
 - Manual browser testing should verify **搜尋同區行情** opens a background result tab, collects visible listings, closes the tab, and refreshes comparison results.
+- Manual browser testing should verify supported listing pages show the market panel automatically without opening the extension popup.
 - Future integration tests should use saved HTML fixtures from 591 pages to catch markup changes.
 
 ## Later Improvements

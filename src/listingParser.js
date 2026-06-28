@@ -25,6 +25,7 @@
   ];
 
   const RENT_TYPES = ["整層住家", "獨立套房", "分租套房", "雅房", "車位", "其他"];
+  const BUILDING_TYPES = ["電梯大樓", "華廈", "公寓", "透天厝", "別墅", "套房", "店面", "辦公", "廠房", "土地", "車位"];
 
   const numberFrom = (value) => {
     if (!value) return null;
@@ -57,6 +58,28 @@
 
   const inferType = (sourceText) => RENT_TYPES.find((type) => String(sourceText || "").includes(type)) || "";
 
+  const inferBuildingType = (sourceText) => BUILDING_TYPES.find((type) => String(sourceText || "").includes(type)) || "";
+
+  const inferMode = (partial, raw) => {
+    if (partial.mode) return partial.mode;
+    const url = String(partial.url || "");
+    if (/sale|buy|house|sinyi|rakuya/i.test(url)) return "sale";
+    if (/rent/i.test(url)) return "rent";
+    if (/萬\/坪|總價|售價|實價登錄|成交/.test(raw)) return "sale";
+    return "rent";
+  };
+
+  const inferMarketKind = (partial, raw) => {
+    if (partial.marketKind) return partial.marketKind;
+    if (/實價登錄|成交|交易年月|移轉/.test(raw)) return "transaction";
+    return "listing";
+  };
+
+  const parseAddressRoad = (sourceText) => {
+    const compact = String(sourceText || "").replace(/\s/g, "");
+    return compact.match(/([\u4e00-\u9fa5\d一二三四五六七八九十]+(?:路|街|大道|巷))/)?.[1] || "";
+  };
+
   const parseFloor = (sourceText) => {
     const match = String(sourceText || "").match(/(?:樓層|樓別)?\s*(\d+)\s*\/\s*(\d+)\s*樓/);
     return {
@@ -81,19 +104,41 @@
     const layout = parseLayout(raw);
     const floor = parseFloor(raw);
     const flags = parseFeatureFlags(raw);
-    const area = partial.area || numberFrom(raw.match(/(\d+(?:\.\d+)?)\s*坪/)?.[1]);
-    const price = partial.price || numberFrom(raw.match(/([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]);
+    const mode = inferMode(partial, raw);
+    const marketKind = inferMarketKind(partial, raw);
+    const area = partial.area || partial.areaPing || numberFrom(raw.match(/(\d+(?:\.\d+)?)\s*坪/)?.[1]);
+    const monthlyRent = partial.monthlyRent || (mode === "rent" ? numberFrom(raw.match(/([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]) : null);
+    const totalPrice = partial.totalPrice || (mode === "sale" ? numberFrom(raw.match(/([\d,]+(?:\.\d+)?)\s*萬/)?.[1]) : null);
+    const pricePerPing =
+      partial.pricePerPing ||
+      (mode === "sale" ? numberFrom(raw.match(/([\d,]+(?:\.\d+)?)\s*萬\/坪/)?.[1]) : null) ||
+      (mode === "sale" && totalPrice && area ? totalPrice / area : null);
+    const rentPerPing =
+      partial.rentPerPing ||
+      (mode === "rent" && monthlyRent && area ? monthlyRent / area : null);
+    const price = partial.price || monthlyRent || totalPrice;
     const url = partial.url || fallbackUrl;
 
     return {
       id: partial.id || listingIdFromUrl(url),
       url,
+      source: partial.source || "",
+      mode,
+      marketKind,
       title: partial.title || "",
       price,
+      totalPrice,
+      pricePerPing,
+      monthlyRent,
+      rentPerPing,
       area,
+      areaPing: area,
       city: partial.city || region.city,
       district: partial.district || region.district,
       type: partial.type || inferType(raw),
+      buildingType: partial.buildingType || inferBuildingType(raw),
+      addressRoad: partial.addressRoad || parseAddressRoad(raw),
+      age: partial.age || numberFrom(raw.match(/(?:屋齡|屋齡約)\s*(\d+(?:\.\d+)?)\s*年/)?.[1]),
       rooms: partial.rooms ?? layout.rooms,
       livingRooms: partial.livingRooms ?? layout.livingRooms,
       bathrooms: partial.bathrooms ?? layout.bathrooms,
@@ -120,7 +165,7 @@
 
   const buildMarketSearchUrl = (listing) => {
     const keywords = buildMarketSearchKeywords(listing);
-    const url = new URL("https://rent.591.com.tw/");
+    const url = new URL(listing.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/");
     if (keywords) url.searchParams.set("keywords", keywords);
     return url.toString();
   };
@@ -131,6 +176,10 @@
     parseRegion,
     parseLayout,
     inferType,
+    inferBuildingType,
+    inferMode,
+    inferMarketKind,
+    parseAddressRoad,
     parseFloor,
     parseFeatureFlags,
     normalizeListing,

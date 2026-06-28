@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>591 Rent Compare</title>
+    <title>House Market Compare</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
     <header>
       <div>
-        <h1>591 租金比較</h1>
-        <p>同區同條件快速估價</p>
+        <h1>房價行情比較</h1>
+        <p>買房分開看開價與實價登錄，租屋看附近租金</p>
       </div>
       <button id="refresh" class="icon-button" title="重新讀取目前頁面">↻</button>
     </header>
@@ -24,7 +24,7 @@
         <div id="quality" class="quality warn">請在 591 物件頁或搜尋頁使用。</div>
         <div class="actions">
           <button id="saveCurrent">儲存物件</button>
-          <button id="autoMarketSearch">搜尋同區行情</button>
+          <button id="autoMarketSearch">分析附近行情</button>
           <button id="collectList" class="secondary">收集本頁列表</button>
           <button id="openMarketSearch" class="secondary">開啟搜尋頁</button>
         </div>
@@ -52,9 +52,8 @@
       </section>
 
       <section class="panel">
-        <h2>同條件比較</h2>
-        <div id="summary" class="summary"></div>
-        <ol id="comparables" class="comparables"></ol>
+        <h2>行情分析</h2>
+        <div id="marketReports" class="market-reports"></div>
       </section>
 
       <section class="panel compact">
@@ -70,6 +69,7 @@
     </main>
 
     <script src="listingParser.js"></script>
+    <script src="marketAnalyzer.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

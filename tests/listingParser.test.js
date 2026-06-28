@@ -32,6 +32,8 @@ test("normalizes a full listing record", () => {
 
   assert.equal(listing.id, "555");
   assert.equal(listing.price, 32000);
+  assert.equal(listing.mode, "rent");
+  assert.equal(listing.marketKind, "listing");
   assert.equal(listing.area, 25.5);
   assert.equal(listing.city, "台北市");
   assert.equal(listing.district, "信義區");
@@ -41,6 +43,22 @@ test("normalizes a full listing record", () => {
   assert.equal(listing.allowsCooking, true);
   assert.equal(listing.allowsPet, false);
   assert.equal(listing.hasParking, true);
+});
+
+test("normalizes sale listing values separately from rent values", () => {
+  const listing = parser.normalizeListing({
+    url: "https://sale.591.com.tw/home/house/detail/2/777.html",
+    title: "台北市信義區電梯大樓",
+    description: "總價 3,200萬 25坪 2房1廳1衛 單價 128萬/坪 屋齡 12年"
+  });
+
+  assert.equal(listing.mode, "sale");
+  assert.equal(listing.marketKind, "listing");
+  assert.equal(listing.totalPrice, 3200);
+  assert.equal(listing.pricePerPing, 128);
+  assert.equal(listing.monthlyRent, null);
+  assert.equal(listing.buildingType, "電梯大樓");
+  assert.equal(listing.age, 12);
 });
 
 test("builds market search url from current listing conditions", () => {
