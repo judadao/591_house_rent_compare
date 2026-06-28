@@ -79,7 +79,7 @@
 
   const rentAreaTolerancePing = (options = {}) => {
     const tolerance = Number(options.rentAreaTolerancePing);
-    return Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : 2;
+    return Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : 0;
   };
 
   const rentAreaMinusPing = (options = {}) => {
@@ -93,8 +93,7 @@
   };
 
   const estimateAreaRange = (base, options = {}) => {
-    const optionArea = Number(options.rentEstimateArea);
-    const targetArea = base.mode === "rent" && Number.isFinite(optionArea) && optionArea > 0 ? optionArea : base.area;
+    const targetArea = base.area;
     if (!Number.isFinite(targetArea)) return { min: 1, max: 0, label: "估算坪數：目前物件坪數未知，暫不估算" };
     if (base.mode !== "rent") {
       const min = Math.max(0, Math.round((targetArea - 2) * 10) / 10);
@@ -298,8 +297,8 @@
     const build = (bucket) => {
       const group = pricedItems.filter((item) => transitDistanceBucket(transitDistanceMeters(item)).key === bucket.key);
       const summary = summarizeValues(group);
-      const diffPercent = baseUnit && summary.averageUnit
-        ? ((baseUnit - summary.averageUnit) / summary.averageUnit) * 100
+      const diffPercent = baseUnit && summary.medianUnit
+        ? ((baseUnit - summary.medianUnit) / summary.medianUnit) * 100
         : null;
       return {
         label: bucket.label,

@@ -103,7 +103,7 @@ test("rent comparison ignores manual area filters and uses current area plus min
     { ...baseRent, id: "fit-high", area: 22, monthlyRent: 34000 },
     { ...baseRent, id: "too-small", area: 17.9, monthlyRent: 20000 },
     { ...baseRent, id: "too-large", area: 22.1, monthlyRent: 60000 }
-  ], { compareAreaPreset: "custom", compareAreaMin: 30 });
+  ], { compareAreaPreset: "custom", compareAreaMin: 30, rentAreaMinusPing: 2, rentAreaPlusPing: 2 });
 
   assert.equal(result.rent.areaRange.label, "估算坪數：18-22坪（目標20坪，-2/+2坪）");
   assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["fit-low", "fit-high"]);
@@ -127,7 +127,7 @@ test("rent estimate badges follow current listing area plus minus two ping", () 
     { ...baseRent, id: "area-21", area: 21, monthlyRent: 32000 },
     { ...baseRent, id: "area-16-9", area: 16.9, monthlyRent: 26000 },
     { ...baseRent, id: "area-21-1", area: 21.1, monthlyRent: 34000 }
-  ]);
+  ], { rentAreaMinusPing: 2, rentAreaPlusPing: 2 });
 
   assert.equal(result.rent.areaRange.label, "估算坪數：17-21坪（目標19坪，-2/+2坪）");
   assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["area-19", "area-17", "area-21"]);
@@ -158,9 +158,9 @@ test("rent estimate uses custom target area minus plus and MRT radius with unit 
     rentEstimateRadiusKm: 3
   });
 
-  assert.equal(result.rent.areaRange.label, "估算坪數：13-16坪（目標14坪，-1/+2坪）");
-  assert.equal(result.rent.estimateScopeLabel, "估算坪數：13-16坪（目標14坪，-1/+2坪），距捷運 3km 內");
-  assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["fit-near", "fit-edge"]);
+  assert.equal(result.rent.areaRange.label, "估算坪數：12-15坪（目標13坪，-1/+2坪）");
+  assert.equal(result.rent.estimateScopeLabel, "估算坪數：12-15坪（目標13坪，-1/+2坪），距捷運 3km 內");
+  assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["fit-near"]);
   assert.equal(Math.round(result.rent.medianUnit), 1000);
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, 30.8);
 });
@@ -197,7 +197,7 @@ test("can compare a sale listing against rental market", () => {
       area: 24,
       monthlyRent: 42000
     }
-  ], { analysisMode: "rent" });
+  ], { analysisMode: "rent", rentAreaMinusPing: 2, rentAreaPlusPing: 2 });
 
   assert.equal(result.mode, "rent");
   assert.equal(result.rent.medianPrimary, 42000);

@@ -212,6 +212,9 @@ const panelStyles = `
   #hmk-panel .hmk-estimate-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   #hmk-panel .hmk-estimate-grid label{display:flex;flex-direction:column;gap:3px;color:#475569;font-size:12px}
   #hmk-panel .hmk-estimate-grid input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;color:#1f2933}
+  #hmk-panel .hmk-slider-row{margin:7px 0}
+  #hmk-panel .hmk-slider-row label{display:flex;justify-content:space-between;gap:8px;color:#475569;font-size:12px}
+  #hmk-panel .hmk-slider-row input[type="range"]{width:100%;accent-color:#236f68}
   #hmk-panel .hmk-muted{color:#64748b}
   #hmk-panel .hmk-status{margin:6px 0}
   #hmk-panel .hmk-warning{margin-top:6px;color:#b45309}
@@ -313,20 +316,26 @@ const estimateAreaRuleHtml = (area, mode) => {
 };
 
 const rentEstimateControlsHtml = (current, options = {}) => {
-  const area = options.rentEstimateArea ?? (Number.isFinite(current.area) ? current.area : "");
-  const minus = options.rentAreaMinusPing ?? options.rentAreaTolerancePing ?? 2;
-  const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 2;
+  const minus = options.rentAreaMinusPing ?? options.rentAreaTolerancePing ?? 0;
+  const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 0;
   const radius = options.rentEstimateRadiusKm ?? 3;
   return `
     <section class="hmk-area-filter">
       <p><strong>租金估算條件</strong></p>
-      <div class="hmk-estimate-grid">
-        <label>目標坪數<input class="hmk-rent-area" type="number" min="0" step="0.1" value="${escapeHtml(area)}"></label>
-        <label>距捷運 km 內<input class="hmk-rent-radius" type="number" min="0.1" step="0.1" value="${escapeHtml(radius)}"></label>
-        <label>- 坪數<input class="hmk-rent-minus" type="number" min="0" step="0.1" value="${escapeHtml(minus)}"></label>
-        <label>+ 坪數<input class="hmk-rent-plus" type="number" min="0" step="0.1" value="${escapeHtml(plus)}"></label>
+      <p class="hmk-muted">基準坪數：${escapeHtml(ping(current.area))}</p>
+      <div class="hmk-slider-row">
+        <label><span>- 坪數</span><strong><span class="hmk-rent-minus-value">${escapeHtml(minus)}</span> 坪</strong></label>
+        <input class="hmk-rent-minus" type="range" min="0" max="10" step="0.5" value="${escapeHtml(minus)}">
       </div>
-      <p class="hmk-muted">預設用目前物件坪數、-2/+2 坪、距捷運 3km 內；貴幾 % 以每坪租金計算。</p>
+      <div class="hmk-slider-row">
+        <label><span>+ 坪數</span><strong><span class="hmk-rent-plus-value">${escapeHtml(plus)}</span> 坪</strong></label>
+        <input class="hmk-rent-plus" type="range" min="0" max="10" step="0.5" value="${escapeHtml(plus)}">
+      </div>
+      <div class="hmk-slider-row">
+        <label><span>距捷運</span><strong><span class="hmk-rent-radius-value">${escapeHtml(radius)}</span> km 內</strong></label>
+        <input class="hmk-rent-radius" type="range" min="0.5" max="10" step="0.5" value="${escapeHtml(radius)}">
+      </div>
+      <p class="hmk-muted">預設用目前物件坪數、-0/+0 坪、距捷運 3km 內；貴幾 % 以每坪租金中位數計算。</p>
     </section>
   `;
 };
@@ -511,7 +520,7 @@ const renderInPagePanel = async (statusText = "") => {
   const applyRentEstimateOptions = async () => {
     const nextOptions = {
       ...(data.options || {}),
-      rentEstimateArea: panel.querySelector(".hmk-rent-area")?.value || "",
+      rentEstimateArea: "",
       rentAreaMinusPing: panel.querySelector(".hmk-rent-minus")?.value || "0",
       rentAreaPlusPing: panel.querySelector(".hmk-rent-plus")?.value || "0",
       rentEstimateRadiusKm: panel.querySelector(".hmk-rent-radius")?.value || "3"
@@ -519,8 +528,17 @@ const renderInPagePanel = async (statusText = "") => {
     await chrome.storage.local.set({ options: nextOptions });
     await renderInPagePanel("已套用租金估算條件。");
   };
-  [".hmk-rent-area", ".hmk-rent-minus", ".hmk-rent-plus", ".hmk-rent-radius"].forEach((selector) => {
-    panel.querySelector(selector)?.addEventListener("change", applyRentEstimateOptions);
+  [
+    [".hmk-rent-minus", ".hmk-rent-minus-value"],
+    [".hmk-rent-plus", ".hmk-rent-plus-value"],
+    [".hmk-rent-radius", ".hmk-rent-radius-value"]
+  ].forEach(([inputSelector, valueSelector]) => {
+    const input = panel.querySelector(inputSelector);
+    input?.addEventListener("input", () => {
+      const valueNode = panel.querySelector(valueSelector);
+      if (valueNode) valueNode.textContent = input.value;
+    });
+    input?.addEventListener("change", applyRentEstimateOptions);
   });
   panel.querySelectorAll("[data-area-preset]").forEach((button) => {
     button.addEventListener("click", async () => {
