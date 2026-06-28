@@ -71,5 +71,17 @@ test("builds market search url from current listing conditions", () => {
   const parsed = new URL(url);
 
   assert.equal(parsed.origin, "https://rent.591.com.tw");
-  assert.equal(parsed.searchParams.get("keywords"), "台北市 信義區 整層住家 2房");
+  assert.equal(parsed.searchParams.get("keywords"), "台北市 信義區");
+});
+
+test("builds regional search keywords from narrow to broad", () => {
+  assert.deepEqual(parser.buildRegionalSearchKeywords({
+    city: "台北市",
+    district: "信義區",
+    addressRoad: "松仁路"
+  }), [
+    "台北市 信義區 松仁路",
+    "台北市 信義區",
+    "台北市"
+  ]);
 });

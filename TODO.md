@@ -26,7 +26,7 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - Popup and content scripts receive syntax checks with `node --check`.
 - Manual browser testing should cover a 591 detail page, a 591 search results page, and a non-591 page error state.
 - Manual browser testing should verify **搜尋同區行情** opens a background result tab, collects visible listings, closes the tab, and refreshes comparison results.
-- Manual browser testing should verify supported listing pages show the market panel automatically without opening the extension popup.
+- Manual browser testing should verify the extension icon toggles the in-page panel and the enabled state persists across listing page navigation.
 - Future integration tests should use saved HTML fixtures from 591 pages to catch markup changes.
 
 ## Later Improvements

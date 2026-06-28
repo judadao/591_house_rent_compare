@@ -53,3 +53,42 @@ test("analyzes rent market by monthly rent and rent per ping", () => {
   assert.equal(result.rent.medianPrimary, 32000);
   assert.equal(result.rent.medianUnit, 1600);
 });
+
+test("can compare a sale listing against rental market", () => {
+  const result = analyzer.analyzeMarket(baseSale, [
+    {
+      mode: "rent",
+      marketKind: "listing",
+      city: "台北市",
+      district: "信義區",
+      buildingType: "電梯大樓",
+      rooms: 2,
+      area: 24,
+      monthlyRent: 42000
+    }
+  ], { analysisMode: "rent" });
+
+  assert.equal(result.mode, "rent");
+  assert.equal(result.rent.medianPrimary, 42000);
+});
+
+test("estimates mortgage monthly payment", () => {
+  const payment = analyzer.estimateMortgagePayment({
+    totalPrice: 3000,
+    downPaymentRatio: 0.2,
+    annualRate: 0.024,
+    years: 30
+  });
+
+  assert.equal(Math.round(payment), 93586);
+});
+
+test("city scope keeps same city while allowing broader districts", () => {
+  const result = analyzer.analyzeMarket(baseSale, [
+    { ...baseSale, id: "same-city", district: "大安區", totalPrice: 2700, pricePerPing: 108, marketKind: "listing" },
+    { ...baseSale, id: "other-city", city: "新北市", district: "板橋區", totalPrice: 1800, pricePerPing: 72, marketKind: "listing" }
+  ], { regionScope: "city", matchDistrict: false });
+
+  assert.equal(result.listing.count, 1);
+  assert.equal(result.listing.comparables[0].id, "same-city");
+});

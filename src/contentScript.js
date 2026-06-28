@@ -62,7 +62,17 @@ const scrapeCurrentListing = () => {
 };
 
 const scrapeListCards = () => {
-  const anchors = [...document.querySelectorAll('a[href*="rent-detail"], a[href*="/rent/"], a[href*="rent_id="]')];
+  const linkSelector = [
+    'a[href*="rent-detail"]',
+    'a[href*="/rent/"]',
+    'a[href*="rent_id="]',
+    'a[href*="sale.591.com.tw"]',
+    'a[href*="/home/house/detail"]',
+    'a[href*="/buy/"]',
+    'a[href*="/sale/"]',
+    'a[href*="house"]'
+  ].join(",");
+  const anchors = [...document.querySelectorAll(linkSelector)];
   const cards = anchors
     .map((anchor) => anchor.closest("li, article, section, div") || anchor)
     .filter((card, index, all) => card && all.indexOf(card) === index)
@@ -70,10 +80,10 @@ const scrapeListCards = () => {
 
   return cards
     .map((card) => {
-      const anchor = card.querySelector('a[href*="rent-detail"], a[href*="/rent/"], a[href*="rent_id="]') || card;
+      const anchor = card.querySelector(linkSelector) || card;
       const cardText = text(card);
       const url = absoluteUrl(anchor.href || "");
-      if (!url || !/(元|坪|房|套房|雅房)/.test(cardText)) return null;
+      if (!url || !/(元|萬|坪|房|套房|雅房|大樓|公寓|華廈)/.test(cardText)) return null;
 
       return parser.normalizeListing(
         {
@@ -115,6 +125,9 @@ const panelStyles = `
   #hmk-panel .hmk-body{padding:10px 12px}
   #hmk-panel .hmk-current{margin-bottom:8px;color:#475569}
   #hmk-panel .hmk-action{width:100%;margin:8px 0;background:#236f68;color:#fff}
+  #hmk-panel .hmk-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+  #hmk-panel .hmk-switch button{background:#e2e8f0;color:#334155}
+  #hmk-panel .hmk-switch button.active{background:#236f68;color:#fff}
   #hmk-panel .hmk-muted{color:#64748b}
   #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
   #hmk-panel strong{color:#0f766e}
@@ -155,9 +168,15 @@ const marketBucketHtml = (bucket, mode) => {
 const renderInPagePanel = async (statusText = "") => {
   if (!analyzer || !chrome?.storage?.local) return;
   const current = scrapeCurrentListing();
-  const data = await chrome.storage.local.get({ listings: [], options: {} });
-  const report = analyzer.analyzeMarket(current, data.listings || [], data.options || {});
-  const buckets = current.mode === "sale" ? [report.listing, report.transaction] : [report.rent];
+  const data = await chrome.storage.local.get({ listings: [], options: {}, panelMode: "" });
+  const panelMode = data.panelMode || current.mode;
+  const report = analyzer.analyzeMarket(current, data.listings || [], { ...(data.options || {}), analysisMode: panelMode });
+  const buckets = panelMode === "sale" ? [report.listing, report.transaction] : [report.rent];
+  const saleReport = analyzer.analyzeMarket({ ...current, mode: "sale" }, data.listings || [], { ...(data.options || {}), analysisMode: "sale", regionScope: "city" });
+  const estimatedPricePerPing = saleReport?.transaction?.medianUnit || saleReport?.listing?.medianUnit || null;
+  const estimatedMortgage = current.mode === "rent"
+    ? analyzer.estimateMortgagePayment({ pricePerPing: estimatedPricePerPing, area: current.area })
+    : null;
 
   let panel = document.querySelector("#hmk-panel");
   if (!panel) {
@@ -179,17 +198,29 @@ const renderInPagePanel = async (statusText = "") => {
     </header>
     <div class="hmk-body">
       <p class="hmk-current">${escapeHtml([current.city, current.district, current.buildingType || current.type, ping(current.area)].filter(Boolean).join(" / "))}</p>
+      ${
+        current.mode === "sale"
+          ? `<div class="hmk-switch"><button data-mode="sale" class="${panelMode === "sale" ? "active" : ""}">比買房</button><button data-mode="rent" class="${panelMode === "rent" ? "active" : ""}">比租屋</button></div>`
+          : ""
+      }
       <button class="hmk-action">分析附近行情</button>
       ${statusText ? `<p class="hmk-muted">${escapeHtml(statusText)}</p>` : ""}
-      ${buckets.map((bucket) => marketBucketHtml(bucket, current.mode)).join("")}
+      ${current.mode === "rent" ? `<section class="hmk-report"><h3>買這類房每月房貸估算</h3><p>${estimatedMortgage ? `以同區買賣行情估算，30 年期、2 成自備、年利率 2.5%，每月約 <strong>${escapeHtml(currency(estimatedMortgage))}</strong>。` : "目前買賣行情資料不足，分析附近行情後會嘗試估算。"}</p></section>` : ""}
+      ${buckets.map((bucket) => marketBucketHtml(bucket, panelMode)).join("")}
     </div>
   `;
 
   panel.querySelector(".hmk-close").addEventListener("click", () => panel.remove());
+  panel.querySelectorAll("[data-mode]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await chrome.storage.local.set({ panelMode: button.dataset.mode });
+      await renderInPagePanel();
+    });
+  });
   panel.querySelector(".hmk-action").addEventListener("click", async () => {
     panel.querySelector(".hmk-action").disabled = true;
     panel.querySelector(".hmk-action").textContent = "分析中...";
-    const response = await chrome.runtime.sendMessage({ type: "ANALYZE_NEARBY", listing: current });
+    const response = await chrome.runtime.sendMessage({ type: "ANALYZE_NEARBY", listing: current, analysisMode: current.mode === "sale" ? panelMode : "" });
     await renderInPagePanel(response?.ok ? `已收集 ${response.scraped} 筆，新增 ${response.added} 筆。` : `分析失敗：${response?.error || "未知錯誤"}`);
   });
 };
@@ -208,9 +239,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-if (!/lvr\.land\.moi/.test(location.hostname)) {
-  setTimeout(() => {
-    renderInPagePanel().catch(() => {});
-  }, 800);
-}
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "TOGGLE_PANEL") {
+    const panel = document.querySelector("#hmk-panel");
+    if (panel) {
+      panel.remove();
+      chrome.storage.local.set({ panelEnabled: false });
+      sendResponse({ ok: true, visible: false });
+    } else {
+      chrome.storage.local.set({ panelEnabled: true }).then(() => renderInPagePanel());
+      sendResponse({ ok: true, visible: true });
+    }
+    return true;
+  }
+
+  return false;
+});
+
+let lastUrl = location.href;
+const showPanelIfEnabled = async () => {
+  if (/lvr\.land\.moi/.test(location.hostname)) return;
+  const data = await chrome.storage.local.get({ panelEnabled: false });
+  if (data.panelEnabled) await renderInPagePanel();
+};
+
+setTimeout(() => {
+  showPanelIfEnabled().catch(() => {});
+}, 800);
+
+setInterval(() => {
+  if (location.href === lastUrl) return;
+  lastUrl = location.href;
+  setTimeout(() => showPanelIfEnabled().catch(() => {}), 800);
+}, 1000);
 })();

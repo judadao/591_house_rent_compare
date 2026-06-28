@@ -163,8 +163,29 @@
       .filter(Boolean)
       .join(" ");
 
+  const buildBroadMarketSearchKeywords = (listing) =>
+    [
+      listing.city,
+      listing.district,
+      listing.addressRoad
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  const buildRegionalSearchKeywords = (listing) => {
+    const searches = [];
+    const add = (...parts) => {
+      const keywords = parts.filter(Boolean).join(" ");
+      if (keywords && !searches.includes(keywords)) searches.push(keywords);
+    };
+    add(listing.city, listing.district, listing.addressRoad);
+    add(listing.city, listing.district);
+    add(listing.city);
+    return searches;
+  };
+
   const buildMarketSearchUrl = (listing) => {
-    const keywords = buildMarketSearchKeywords(listing);
+    const keywords = buildBroadMarketSearchKeywords(listing) || buildMarketSearchKeywords(listing);
     const url = new URL(listing.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/");
     if (keywords) url.searchParams.set("keywords", keywords);
     return url.toString();
@@ -184,6 +205,8 @@
     parseFeatureFlags,
     normalizeListing,
     buildMarketSearchKeywords,
+    buildBroadMarketSearchKeywords,
+    buildRegionalSearchKeywords,
     buildMarketSearchUrl
   };
 

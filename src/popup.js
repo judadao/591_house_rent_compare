@@ -1,10 +1,10 @@
 const $ = (selector) => document.querySelector(selector);
 
 const DEFAULT_OPTIONS = {
-  areaTolerance: 0.2,
-  matchDistrict: true,
-  matchType: true,
-  matchRooms: true
+  areaTolerance: 0.25,
+  matchDistrict: false,
+  matchType: false,
+  matchRooms: false
 };
 
 const state = {
@@ -130,7 +130,7 @@ const marketSearchUrl = () => {
 const marketSearchUrls = () => {
   if (!state.current) return [];
   const base = state.current;
-  const keywords = parser.buildMarketSearchKeywords(base);
+  const keywords = parser.buildBroadMarketSearchKeywords(base);
   const urls = [];
   const add = (label, url, marketKind = "listing") => urls.push({ label, url, marketKind });
 

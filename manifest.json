@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "House Market Compare",
   "description": "Analyze sale and rent listings against asking-price and transaction market benchmarks.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": [
     "*://*.591.com.tw/*",
@@ -13,8 +13,7 @@
     "*://lvr.land.moi.gov.tw/*"
   ],
   "action": {
-    "default_title": "House Market Compare",
-    "default_popup": "src/popup.html"
+    "default_title": "開關房價行情面板"
   },
   "background": {
     "service_worker": "src/background.js"

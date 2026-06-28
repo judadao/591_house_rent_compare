@@ -39,9 +39,10 @@
     const tolerance = Number(options.areaTolerance ?? 0.25);
     if (base.mode !== item.mode) return false;
     if (base.city && item.city && base.city !== item.city) return false;
-    if (options.matchDistrict !== false && base.district && item.district && base.district !== item.district) return false;
-    if (options.matchBuildingType !== false && base.buildingType && item.buildingType && base.buildingType !== item.buildingType) return false;
-    if (options.matchRooms !== false && base.rooms && item.rooms && base.rooms !== item.rooms) return false;
+    if (options.regionScope === "district" && base.district && item.district && base.district !== item.district) return false;
+    if (options.regionScope !== "city" && options.matchDistrict !== false && base.district && item.district && base.district !== item.district) return false;
+    if (options.matchBuildingType === true && base.buildingType && item.buildingType && base.buildingType !== item.buildingType) return false;
+    if (options.matchRooms === true && base.rooms && item.rooms && base.rooms !== item.rooms) return false;
     if (base.area && item.area && (item.area < base.area * (1 - tolerance) || item.area > base.area * (1 + tolerance))) return false;
     return Number.isFinite(primaryValue(item));
   };
@@ -80,18 +81,37 @@
 
   const analyzeMarket = (base, items, options = {}) => {
     if (!base) return null;
-    const sameMode = items.filter((item) => item.mode === base.mode);
-    if (base.mode === "sale") {
+    const analysisMode = options.analysisMode || base.mode;
+    const benchmarkBase = { ...base, mode: analysisMode };
+    const sameMode = items.filter((item) => item.mode === analysisMode);
+    if (analysisMode === "sale") {
       return {
         mode: "sale",
-        listing: analyzeBucket(base, sameMode.filter((item) => item.marketKind === "listing"), "待售開價行情", options),
-        transaction: analyzeBucket(base, sameMode.filter((item) => item.marketKind === "transaction"), "實價登錄成交行情", options)
+        listing: analyzeBucket(benchmarkBase, sameMode.filter((item) => item.marketKind === "listing"), "待售開價行情", options),
+        transaction: analyzeBucket(benchmarkBase, sameMode.filter((item) => item.marketKind === "transaction"), "實價登錄成交行情", options)
       };
     }
     return {
       mode: "rent",
-      rent: analyzeBucket(base, sameMode.filter((item) => item.marketKind === "listing"), "租屋行情", options)
+      rent: analyzeBucket(benchmarkBase, sameMode.filter((item) => item.marketKind === "listing"), "租屋行情", options)
     };
+  };
+
+  const estimateMortgagePayment = ({
+    totalPrice,
+    pricePerPing,
+    area,
+    downPaymentRatio = 0.2,
+    annualRate = 0.025,
+    years = 30
+  }) => {
+    const estimatedTotalPrice = totalPrice || (pricePerPing && area ? pricePerPing * area : null);
+    if (!estimatedTotalPrice) return null;
+    const principal = estimatedTotalPrice * 10000 * (1 - downPaymentRatio);
+    const monthlyRate = annualRate / 12;
+    const months = years * 12;
+    if (!monthlyRate) return principal / months;
+    return (principal * monthlyRate * (1 + monthlyRate) ** months) / ((1 + monthlyRate) ** months - 1);
   };
 
   const api = {
@@ -102,7 +122,8 @@
     similarityScore,
     isComparable,
     analyzeBucket,
-    analyzeMarket
+    analyzeMarket,
+    estimateMortgagePayment
   };
 
   globalScope.RentCompareMarketAnalyzer = api;
