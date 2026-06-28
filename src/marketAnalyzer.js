@@ -51,7 +51,7 @@
   };
 
   const estimateAreaRange = (base) => {
-    if (!Number.isFinite(base.area)) return { min: null, max: null, label: "估算坪數：目前物件坪數未知" };
+    if (!Number.isFinite(base.area)) return { min: 1, max: 0, label: "估算坪數：目前物件坪數未知，暫不估算" };
     const min = Math.max(0, Math.round((base.area - 2) * 10) / 10);
     const max = Math.round((base.area + 2) * 10) / 10;
     return { min, max, label: `估算坪數：${min}-${max}坪（目前坪數±2坪）` };
@@ -59,6 +59,7 @@
 
   const areaRangeMatch = (item, range) => {
     if (!range || (range.min === null && range.max === null)) return true;
+    if (range.min !== null && range.max !== null && range.min > range.max) return false;
     if (!Number.isFinite(item.area)) return false;
     if (range.min !== null && item.area < range.min) return false;
     if (range.max !== null && item.area > range.max) return false;
@@ -345,10 +346,15 @@
       areaScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }))
     );
     const calculationKeys = new Set(calculationComparables.map((item) => item.id || item.url || JSON.stringify(item)));
-    const comparables = displayComparables.map((item) => ({
-      ...item,
-      usedForEstimate: calculationKeys.has(item.id || item.url || JSON.stringify(item))
-    }));
+    const comparables = displayComparables
+      .map((item) => ({
+        ...item,
+        usedForEstimate: calculationKeys.has(item.id || item.url || JSON.stringify(item))
+      }))
+      .sort((a, b) => {
+        if (a.usedForEstimate !== b.usedForEstimate) return a.usedForEstimate ? -1 : 1;
+        return 0;
+      });
     const pricedComparables = calculationComparables.filter((item) => Number.isFinite(primaryValue(item)));
 
     const primaryValues = pricedComparables.map(primaryValue);

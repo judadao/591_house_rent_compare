@@ -3,7 +3,7 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 7;
+const MARKET_DATA_VERSION = 8;
 const analysisInFlight = new Set();
 const REGION_SECTION_IDS = {
   "新北市|板橋區": { regionid: 3, section: 26 }

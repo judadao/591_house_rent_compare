@@ -120,6 +120,7 @@ test("rent estimate badges follow current listing area plus minus two ping", () 
     monthlyRent: 30000
   };
   const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "area-7", area: 7, monthlyRent: 9000 },
     { ...baseRent, id: "area-17", area: 17, monthlyRent: 28000 },
     { ...baseRent, id: "area-19", area: 19, monthlyRent: 30000 },
     { ...baseRent, id: "area-21", area: 21, monthlyRent: 32000 },
@@ -130,7 +131,28 @@ test("rent estimate badges follow current listing area plus minus two ping", () 
   assert.equal(result.rent.areaRange.label, "估算坪數：17-21坪（目前坪數±2坪）");
   assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["area-19", "area-17", "area-21"]);
   assert.deepEqual(result.rent.comparables.filter((item) => item.usedForEstimate).map((item) => item.id), ["area-19", "area-17", "area-21"]);
-  assert.deepEqual(result.rent.comparables.filter((item) => !item.usedForEstimate).map((item) => item.id), ["area-16-9", "area-21-1"]);
+  assert.deepEqual(result.rent.comparables.slice(0, 3).map((item) => item.id), ["area-19", "area-17", "area-21"]);
+  assert.deepEqual(result.rent.comparables.filter((item) => !item.usedForEstimate).map((item) => item.id), ["area-16-9", "area-21-1", "area-7"]);
+});
+
+test("does not estimate when current listing area is unknown", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "新北市",
+    district: "板橋區",
+    area: null,
+    monthlyRent: 30000
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "area-7", area: 7, monthlyRent: 9000 },
+    { ...baseRent, id: "area-19", area: 19, monthlyRent: 30000 }
+  ]);
+
+  assert.equal(result.rent.areaRange.label, "估算坪數：目前物件坪數未知，暫不估算");
+  assert.equal(result.rent.estimateCount, 0);
+  assert.equal(result.rent.medianPrimary, null);
+  assert.deepEqual(result.rent.comparables.map((item) => item.usedForEstimate), [false, false]);
 });
 
 test("can compare a sale listing against rental market", () => {

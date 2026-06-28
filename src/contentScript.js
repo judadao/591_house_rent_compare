@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 7;
+const MARKET_DATA_VERSION = 8;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
@@ -304,7 +304,7 @@ const areaFilterHtml = (options = {}) => {
 const estimateAreaRuleHtml = (area, mode) => {
   const rule = Number.isFinite(area)
     ? `${mode === "rent" ? "比租屋" : "估算"}固定採目前物件 ${ping(area)} 的 ±2 坪範圍；坪數外物件只做附近參考。`
-    : "估算需要目前物件坪數；若頁面抓不到坪數，坪數條件會放寬。";
+    : "估算需要目前物件坪數；若頁面抓不到坪數，暫不納入估算，只顯示附近參考。";
   return `<section class="hmk-area-filter"><p><strong>估算坪數規則</strong></p><p class="hmk-muted">${escapeHtml(rule)}</p></section>`;
 };
 
