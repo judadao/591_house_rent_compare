@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 10;
+const MARKET_DATA_VERSION = 11;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
@@ -46,7 +46,7 @@ const scrapeCurrentListing = () => {
     jsonLd.name ||
     getMeta("og:title") ||
     document.title.replace("591租屋網", "").trim();
-  const description = getMeta("description") || jsonLd.description || bodyText.slice(0, 3500);
+  const description = [getMeta("description"), jsonLd.description, bodyText.slice(0, 5000)].filter(Boolean).join(" ");
   const latitude =
     parser.numberFrom(jsonLd.geo?.latitude) ||
     parser.numberFrom(document.querySelector('[itemprop="latitude"]')?.content) ||
@@ -209,6 +209,9 @@ const panelStyles = `
   #hmk-panel .hmk-area-presets button.active{background:#236f68;color:#fff}
   #hmk-panel .hmk-area-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   #hmk-panel .hmk-area-inputs input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;color:#1f2933}
+  #hmk-panel .hmk-estimate-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  #hmk-panel .hmk-estimate-grid label{display:flex;flex-direction:column;gap:3px;color:#475569;font-size:12px}
+  #hmk-panel .hmk-estimate-grid input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;color:#1f2933}
   #hmk-panel .hmk-muted{color:#64748b}
   #hmk-panel .hmk-status{margin:6px 0}
   #hmk-panel .hmk-warning{margin-top:6px;color:#b45309}
@@ -309,13 +312,32 @@ const estimateAreaRuleHtml = (area, mode) => {
   return `<section class="hmk-area-filter"><p><strong>估算坪數規則</strong></p><p class="hmk-muted">${escapeHtml(rule)}</p></section>`;
 };
 
+const rentEstimateControlsHtml = (current, options = {}) => {
+  const area = options.rentEstimateArea ?? (Number.isFinite(current.area) ? current.area : "");
+  const minus = options.rentAreaMinusPing ?? options.rentAreaTolerancePing ?? 2;
+  const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 2;
+  const radius = options.rentEstimateRadiusKm ?? 3;
+  return `
+    <section class="hmk-area-filter">
+      <p><strong>租金估算條件</strong></p>
+      <div class="hmk-estimate-grid">
+        <label>目標坪數<input class="hmk-rent-area" type="number" min="0" step="0.1" value="${escapeHtml(area)}"></label>
+        <label>距捷運 km 內<input class="hmk-rent-radius" type="number" min="0.1" step="0.1" value="${escapeHtml(radius)}"></label>
+        <label>- 坪數<input class="hmk-rent-minus" type="number" min="0" step="0.1" value="${escapeHtml(minus)}"></label>
+        <label>+ 坪數<input class="hmk-rent-plus" type="number" min="0" step="0.1" value="${escapeHtml(plus)}"></label>
+      </div>
+      <p class="hmk-muted">預設用目前物件坪數、-2/+2 坪、距捷運 3km 內；貴幾 % 以每坪租金計算。</p>
+    </section>
+  `;
+};
+
 const marketBucketHtml = (bucket, mode) => {
   const hasData = bucket.estimateCount > 0;
   const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
   const pricedCount = bucket.estimateCount ?? bucket.pricedCount ?? 0;
-  const areaRangeLabel = bucket.areaRange?.label || "權狀不限";
+  const areaRangeLabel = bucket.estimateScopeLabel || bucket.areaRange?.label || "權狀不限";
   const sampleWarning = pricedCount < 5
     ? `<p class="hmk-warning">樣本不足：可估價少於 5 筆，只能當粗略參考。</p>`
     : pricedCount < 12
@@ -465,7 +487,7 @@ const renderInPagePanel = async (statusText = "") => {
         <input class="hmk-auto-toggle" type="checkbox" ${data.autoAnalysisEnabled ? "checked" : ""}>
         <span class="hmk-slider" aria-hidden="true"></span>
       </label>
-      ${estimateAreaRuleHtml(current.area, panelMode)}
+      ${panelMode === "rent" ? rentEstimateControlsHtml(current, data.options || {}) : estimateAreaRuleHtml(current.area, panelMode)}
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
       ${pollStatusHtml(data.marketPollStatus)}
@@ -485,6 +507,20 @@ const renderInPagePanel = async (statusText = "") => {
   panel.querySelector(".hmk-auto-toggle")?.addEventListener("change", async (event) => {
     await chrome.storage.local.set({ autoAnalysisEnabled: event.target.checked });
     await renderInPagePanel(event.target.checked ? "已開啟自動分析。" : "已關閉自動分析。");
+  });
+  const applyRentEstimateOptions = async () => {
+    const nextOptions = {
+      ...(data.options || {}),
+      rentEstimateArea: panel.querySelector(".hmk-rent-area")?.value || "",
+      rentAreaMinusPing: panel.querySelector(".hmk-rent-minus")?.value || "0",
+      rentAreaPlusPing: panel.querySelector(".hmk-rent-plus")?.value || "0",
+      rentEstimateRadiusKm: panel.querySelector(".hmk-rent-radius")?.value || "3"
+    };
+    await chrome.storage.local.set({ options: nextOptions });
+    await renderInPagePanel("已套用租金估算條件。");
+  };
+  [".hmk-rent-area", ".hmk-rent-minus", ".hmk-rent-plus", ".hmk-rent-radius"].forEach((selector) => {
+    panel.querySelector(selector)?.addEventListener("change", applyRentEstimateOptions);
   });
   panel.querySelectorAll("[data-area-preset]").forEach((button) => {
     button.addEventListener("click", async () => {

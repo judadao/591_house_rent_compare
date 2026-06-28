@@ -53,7 +53,7 @@ const createChromeMock = () => {
     panelEnabled: false,
     panelMode: "",
     analysisTimestamps: {},
-    marketDataVersion: 10,
+    marketDataVersion: 11,
     autoAnalysisEnabled: true
   };
   const sentMessages = [];
@@ -157,9 +157,19 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   rentMode.click();
   await flush();
   assert.equal(chrome.storage.panelMode, "rent");
-  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /租屋行情/);
-  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /±2 坪/);
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /租金估算條件/);
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /-2\/\+2/);
   assert.equal(dom.window.document.querySelector('[data-area-preset="20_30"]'), null);
+  dom.window.document.querySelector(".hmk-rent-area").value = "14";
+  dom.window.document.querySelector(".hmk-rent-minus").value = "1";
+  dom.window.document.querySelector(".hmk-rent-plus").value = "3";
+  dom.window.document.querySelector(".hmk-rent-radius").value = "5";
+  dom.window.document.querySelector(".hmk-rent-radius").dispatchEvent(new dom.window.Event("change"));
+  await flush();
+  assert.equal(chrome.storage.options.rentEstimateArea, "14");
+  assert.equal(chrome.storage.options.rentAreaMinusPing, "1");
+  assert.equal(chrome.storage.options.rentAreaPlusPing, "3");
+  assert.equal(chrome.storage.options.rentEstimateRadiusKm, "5");
 
   const action = dom.window.document.querySelector(".hmk-action");
   assert.ok(action);

@@ -3,7 +3,7 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 10;
+const MARKET_DATA_VERSION = 11;
 const REGION_REFRESH_KEY = "marketRegionRefreshState";
 const analysisInFlight = new Set();
 const REGION_SECTION_IDS = {
@@ -11,7 +11,8 @@ const REGION_SECTION_IDS = {
 };
 const RENT_STATION_IDS = {
   "新北市|板橋區|府中": { metro: 168, station: 4275 },
-  "新北市|板橋區|板新": { metro: 168, station: 4275 }
+  "新北市|板橋區|板新": { metro: 168, station: 4275 },
+  "新北市|板橋區|新埔": { metro: 168, station: 4275 }
 };
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
@@ -127,15 +128,15 @@ const regionalMarketSources = (base, analysisMode = base.mode) => {
   const add = (label, url, marketKind = "listing") => sources.push({ label, url, marketKind });
   const regionSection = REGION_SECTION_IDS[`${searchBase.city}|${searchBase.district}`];
   if (regionSection) {
+    if (searchBase.mode === "rent") {
+      const focused = rentFocusedSource(searchBase, regionSection);
+      if (focused) add(focused.label, focused.url, "listing");
+    }
     const structured = new URL(searchBase.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/list");
     structured.searchParams.set(searchBase.mode === "sale" ? "regionid" : "region", regionSection.regionid);
     structured.searchParams.set("section", regionSection.section);
     if (searchBase.mode === "sale") structured.searchParams.set("shType", "list");
     add(`591 ${searchBase.mode === "sale" ? "買房" : "租屋"} ${searchBase.city}${searchBase.district}`, structured.toString(), "listing");
-    if (searchBase.mode === "rent") {
-      const focused = rentFocusedSource(searchBase, regionSection);
-      if (focused) add(focused.label, focused.url, "listing");
-    }
   }
   return sources.length ? sources : marketSearchUrls(searchBase, analysisMode).slice(0, 1);
 };

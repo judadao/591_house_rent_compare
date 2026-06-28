@@ -28,6 +28,33 @@
     return item.monthlyRent || item.price || null;
   };
 
+  const transitDistanceMeters = (item) => {
+    if (Number.isFinite(item?.transitDistanceMeters)) return item.transitDistanceMeters;
+    if (Number.isFinite(item?.stationDistanceMeters)) return item.stationDistanceMeters;
+    return null;
+  };
+
+  const transitDistanceBucket = (meters) => {
+    if (!Number.isFinite(meters)) return { key: "unknown", label: "捷運距離未知", min: null, max: null };
+    if (meters <= 500) return { key: "m0_500", label: "距捷運 0-500m", min: 0, max: 500 };
+    if (meters <= 1000) return { key: "m500_1000", label: "距捷運 500m-1km", min: 500, max: 1000 };
+    if (meters <= 2000) return { key: "m1000_2000", label: "距捷運 1-2km", min: 1000, max: 2000 };
+    return { key: "m2000_up", label: "距捷運 2km 以上", min: 2000, max: null };
+  };
+
+  const rentEstimateRadiusKm = (options = {}) => {
+    const radius = Number(options.rentEstimateRadiusKm);
+    return Number.isFinite(radius) && radius > 0 ? radius : 3;
+  };
+
+  const rentRadiusMatch = (base, item, options = {}) => {
+    const radiusKm = rentEstimateRadiusKm(options);
+    const meters = transitDistanceMeters(item);
+    if (Number.isFinite(meters)) return meters <= radiusKm * 1000;
+    const km = distanceKm(base, item);
+    return km === null ? true : km <= radiusKm;
+  };
+
   const autoAreaRange = (area) => {
     if (!Number.isFinite(area)) return { min: null, max: null, label: "權狀不限" };
     if (area < 20) return { min: null, max: 20, label: "權狀20坪以下" };
@@ -50,11 +77,35 @@
     return { min: null, max: null, label: "權狀不限" };
   };
 
-  const estimateAreaRange = (base) => {
-    if (!Number.isFinite(base.area)) return { min: 1, max: 0, label: "估算坪數：目前物件坪數未知，暫不估算" };
-    const min = Math.max(0, Math.round((base.area - 2) * 10) / 10);
-    const max = Math.round((base.area + 2) * 10) / 10;
-    return { min, max, label: `估算坪數：${min}-${max}坪（目前坪數±2坪）` };
+  const rentAreaTolerancePing = (options = {}) => {
+    const tolerance = Number(options.rentAreaTolerancePing);
+    return Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : 2;
+  };
+
+  const rentAreaMinusPing = (options = {}) => {
+    const minus = Number(options.rentAreaMinusPing);
+    return Number.isFinite(minus) && minus >= 0 ? minus : rentAreaTolerancePing(options);
+  };
+
+  const rentAreaPlusPing = (options = {}) => {
+    const plus = Number(options.rentAreaPlusPing);
+    return Number.isFinite(plus) && plus >= 0 ? plus : rentAreaTolerancePing(options);
+  };
+
+  const estimateAreaRange = (base, options = {}) => {
+    const optionArea = Number(options.rentEstimateArea);
+    const targetArea = base.mode === "rent" && Number.isFinite(optionArea) && optionArea > 0 ? optionArea : base.area;
+    if (!Number.isFinite(targetArea)) return { min: 1, max: 0, label: "估算坪數：目前物件坪數未知，暫不估算" };
+    if (base.mode !== "rent") {
+      const min = Math.max(0, Math.round((targetArea - 2) * 10) / 10);
+      const max = Math.round((targetArea + 2) * 10) / 10;
+      return { min, max, label: `估算坪數：${min}-${max}坪（目前坪數±2坪）` };
+    }
+    const minus = base.mode === "rent" ? rentAreaMinusPing(options) : 2;
+    const plus = base.mode === "rent" ? rentAreaPlusPing(options) : 2;
+    const min = Math.max(0, Math.round((targetArea - minus) * 10) / 10);
+    const max = Math.round((targetArea + plus) * 10) / 10;
+    return { min, max, label: `估算坪數：${min}-${max}坪（目標${targetArea}坪，-${minus}/+${plus}坪）` };
   };
 
   const areaRangeMatch = (item, range) => {
@@ -238,19 +289,22 @@
 
   const rentDistanceSummary = (base, items, options = {}) => {
     if (base.mode !== "rent") return [];
-    const areaRange = estimateAreaRange(base);
+    const areaRange = estimateAreaRange(base, options);
     const pricedItems = items
       .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange))
       .filter((item) => Number.isFinite(primaryValue(item)));
-    const baseRent = primaryValue(base);
-    const build = (label, matcher) => {
-      const group = pricedItems.filter(matcher);
+    const baseUnit = unitValue(base);
+    const currentBucket = transitDistanceBucket(transitDistanceMeters(base));
+    const build = (bucket) => {
+      const group = pricedItems.filter((item) => transitDistanceBucket(transitDistanceMeters(item)).key === bucket.key);
       const summary = summarizeValues(group);
-      const diffPercent = baseRent && summary.averagePrimary
-        ? ((baseRent - summary.averagePrimary) / summary.averagePrimary) * 100
+      const diffPercent = baseUnit && summary.averageUnit
+        ? ((baseUnit - summary.averageUnit) / summary.averageUnit) * 100
         : null;
       return {
-        label,
+        label: bucket.label,
+        key: bucket.key,
+        isCurrentBucket: bucket.key === currentBucket.key,
         count: group.length,
         averagePrimary: summary.averagePrimary,
         medianPrimary: summary.medianPrimary,
@@ -261,21 +315,11 @@
     };
 
     return [
-      build("1km內", (item) => {
-        const distance = distanceKm(base, item);
-        return distance !== null && distance <= 1;
-      }),
-      build("3km內", (item) => {
-        const distance = distanceKm(base, item);
-        return distance !== null && distance <= 3;
-      }),
-      build("5km內", (item) => {
-        const distance = distanceKm(base, item);
-        return distance !== null && distance <= 5;
-      }),
-      build("同行政區不限距離", (item) =>
-        base.district && (item.district === base.district || item.searchContext?.district === base.district)
-      )
+      build({ key: "m0_500", label: "距捷運 0-500m" }),
+      build({ key: "m500_1000", label: "距捷運 500m-1km" }),
+      build({ key: "m1000_2000", label: "距捷運 1-2km" }),
+      build({ key: "m2000_up", label: "距捷運 2km 以上" }),
+      build({ key: "unknown", label: "捷運距離未知" })
     ];
   };
 
@@ -338,12 +382,16 @@
 
   const analyzeBucket = (base, items, label, options = {}) => {
     const scopedItems = scopedMarketItems(base, items, options);
-    const areaRange = estimateAreaRange(base);
+    const areaRange = estimateAreaRange(base, options);
     const areaScopedItems = scopedItems.filter((item) => areaRangeMatch(item, areaRange));
+    const rentBucket = base.mode === "rent" ? transitDistanceBucket(transitDistanceMeters(base)) : null;
+    const estimateScopedItems = base.mode === "rent"
+      ? areaScopedItems.filter((item) => rentRadiusMatch(base, item, options))
+      : areaScopedItems;
     const displayComparables = comparableRankedItems(base, scopedItems).slice(0, 20);
     const calculationComparables = comparableRankedItems(
       base,
-      areaScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }))
+      estimateScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }))
     );
     const calculationKeys = new Set(calculationComparables.map((item) => item.id || item.url || JSON.stringify(item)));
     const comparables = displayComparables
@@ -363,9 +411,9 @@
     const baseUnit = unitValue(base);
     const medianPrimary = median(primaryValues);
     const medianUnit = median(unitValues);
-    const compareValue = base.mode === "sale" ? baseUnit : basePrimary;
-    const benchmark = base.mode === "sale" ? medianUnit : medianPrimary;
-    const diffPercent = benchmark && compareValue ? ((compareValue - benchmark) / benchmark) * 100 : null;
+    const finalCompareValue = base.mode === "rent" ? baseUnit : baseUnit;
+    const benchmark = medianUnit;
+    const diffPercent = benchmark && finalCompareValue ? ((finalCompareValue - benchmark) / benchmark) * 100 : null;
 
     return {
       label,
@@ -381,6 +429,10 @@
       diffPercent,
       comparableMode: "area-estimate",
       areaRange,
+      transitDistanceBucket: rentBucket,
+      estimateScopeLabel: base.mode === "rent"
+        ? `${areaRange.label}，距捷運 ${rentEstimateRadiusKm(options)}km 內`
+        : areaRange.label,
       rentDistanceBuckets: base.mode === "rent" ? rentDistanceSummary(base, items, options) : [],
       scopeCount: scopedItems.length,
       areaScopeCount: areaScopedItems.length,

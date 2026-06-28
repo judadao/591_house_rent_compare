@@ -173,7 +173,7 @@ const assertPollingUsesOneBackgroundTab = async (analysisMode) => {
   assert.equal(tabs.updated.length, isRent ? 1 : 0);
   assert.equal(tabs.removed.length, 1);
   if (isRent) {
-    const focused = new URL(tabs.updated[0].url);
+    const focused = new URL(tabs.created[0].url);
     assert.equal(focused.origin, "https://rent.591.com.tw");
     assert.equal(focused.pathname, "/list");
     assert.equal(focused.searchParams.get("price"), "10000_20000,5000_10000,0_5000");

@@ -68,7 +68,9 @@ test("parses compact MRT distance text from rent pages", () => {
   });
 
   assert.equal(parser.parseTransitStation("距板新站448公尺"), "板新");
+  assert.equal(parser.parseTransitDistanceMeters("距板新站448公尺"), 448);
   assert.equal(listing.transitStation, "板新");
+  assert.equal(listing.transitDistanceMeters, 448);
   assert.equal(listing.area, 13);
   assert.equal(listing.monthlyRent, 16999);
 });

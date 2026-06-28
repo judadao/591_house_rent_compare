@@ -117,6 +117,11 @@
     return "";
   };
 
+  const parseTransitDistanceMeters = (sourceText) => {
+    const compact = String(sourceText || "").replace(/\s/g, "");
+    return numberFrom(compact.match(/距(?:離)?(?:捷運)?[\u4e00-\u9fa5A-Za-z0-9]{1,12}?(?:捷運站|站)?(\d+(?:\.\d+)?)公尺/)?.[1]);
+  };
+
   const parsePublicFacilityRatio = (sourceText) => {
     const match = String(sourceText || "").match(/公設比\s*(\d+(?:\.\d+)?)\s*%/);
     const ratio = numberFrom(match?.[1]);
@@ -202,6 +207,7 @@
       addressRoad,
       areaBlock: partial.areaBlock || inferAreaBlock({ city, district, addressRoad, raw }),
       transitStation: partial.transitStation || parseTransitStation(raw),
+      transitDistanceMeters: partial.transitDistanceMeters ?? parseTransitDistanceMeters(raw),
       latitude: latitude === null ? null : Number(latitude),
       longitude: longitude === null ? null : Number(longitude),
       age: partial.age || numberFrom(raw.match(/(?:屋齡|屋齡約)\s*(\d+(?:\.\d+)?)\s*年/)?.[1]),
@@ -273,6 +279,7 @@
     parseAddressRoad,
     inferAreaBlock,
     parseTransitStation,
+    parseTransitDistanceMeters,
     parsePublicFacilityRatio,
     parseMainArea,
     parseFloor,
