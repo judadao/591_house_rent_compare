@@ -11,6 +11,12 @@
 
   const median = (values) => percentile(values, 0.5);
 
+  const average = (values) => {
+    const finite = values.filter(Number.isFinite);
+    if (!finite.length) return null;
+    return finite.reduce((sum, value) => sum + value, 0) / finite.length;
+  };
+
   const unitValue = (item) => {
     if (!item.area) return null;
     if (item.mode === "sale") return item.pricePerPing || (item.totalPrice ? item.totalPrice / item.area : null);
@@ -150,6 +156,8 @@
     const unitValues = items.map(unitValue);
     return {
       count: items.length,
+      averagePrimary: average(primaryValues),
+      averageUnit: average(unitValues),
       medianPrimary: median(primaryValues),
       medianUnit: median(unitValues),
       p25Primary: percentile(primaryValues, 0.25),
@@ -215,6 +223,49 @@
       sameMainAreaSummary: summarizeValues(sameMainAreaItems),
       featureSummary: summarizeValues(featureItems)
     };
+  };
+
+  const rentDistanceSummary = (base, items, options = {}) => {
+    if (base.mode !== "rent") return [];
+    const areaRange = resolveAreaRange(base, options);
+    const pricedItems = items
+      .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange))
+      .filter((item) => Number.isFinite(primaryValue(item)));
+    const baseRent = primaryValue(base);
+    const build = (label, matcher) => {
+      const group = pricedItems.filter(matcher);
+      const summary = summarizeValues(group);
+      const diffPercent = baseRent && summary.averagePrimary
+        ? ((baseRent - summary.averagePrimary) / summary.averagePrimary) * 100
+        : null;
+      return {
+        label,
+        count: group.length,
+        averagePrimary: summary.averagePrimary,
+        medianPrimary: summary.medianPrimary,
+        averageUnit: summary.averageUnit,
+        medianUnit: summary.medianUnit,
+        diffPercent
+      };
+    };
+
+    return [
+      build("1km內", (item) => {
+        const distance = distanceKm(base, item);
+        return distance !== null && distance <= 1;
+      }),
+      build("3km內", (item) => {
+        const distance = distanceKm(base, item);
+        return distance !== null && distance <= 3;
+      }),
+      build("5km內", (item) => {
+        const distance = distanceKm(base, item);
+        return distance !== null && distance <= 5;
+      }),
+      build("同行政區不限距離", (item) =>
+        base.district && (item.district === base.district || item.searchContext?.district === base.district)
+      )
+    ];
   };
 
   const similarityScore = (base, item) => {
@@ -311,6 +362,7 @@
       diffPercent,
       comparableMode,
       areaRange,
+      rentDistanceBuckets: base.mode === "rent" ? rentDistanceSummary(base, items, options) : [],
       scopeCount: scopedItems.length,
       areaScopeCount: areaScopedItems.length,
       comparables,
@@ -356,6 +408,7 @@
   const api = {
     percentile,
     median,
+    average,
     unitValue,
     primaryValue,
     autoAreaRange,
@@ -370,6 +423,7 @@
     summarizeValues,
     mainAreaBucketLabel,
     sliceMarket,
+    rentDistanceSummary,
     similarityScore,
     isComparable,
     analyzeBucket,

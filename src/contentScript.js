@@ -328,6 +328,7 @@ const marketBucketHtml = (bucket, mode) => {
           ? `<p>其中 <strong>${escapeHtml(pricedCount)}</strong> 個有價格可計算：中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方依權狀坪數接近度排序，再看距離。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
+      ${mode === "rent" ? rentDistanceBucketsHtml(bucket.rentDistanceBuckets || []) : ""}
       ${marketSliceHtml(slice, mode)}
       <ol>
         ${bucket.comparables
@@ -336,6 +337,23 @@ const marketBucketHtml = (bucket, mode) => {
           .join("")}
       </ol>
     </section>
+  `;
+};
+
+const diffText = (value) => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "-";
+  return value >= 0 ? `高 ${Math.abs(value).toFixed(1)}%` : `低 ${Math.abs(value).toFixed(1)}%`;
+};
+
+const rentDistanceBucketsHtml = (buckets) => {
+  if (!buckets.length) return "";
+  return `
+    <div class="hmk-slices">
+      <p><strong>租金距離區間</strong></p>
+      <ul>
+        ${buckets.map((bucket) => `<li>${escapeHtml(bucket.label)}：${escapeHtml(bucket.count)} 筆，月租均價 ${escapeHtml(currency(bucket.averagePrimary))}，中位數 ${escapeHtml(currency(bucket.medianPrimary))}，差價 ${escapeHtml(diffText(bucket.diffPercent))}，${escapeHtml(currency(bucket.averageUnit))}/坪</li>`).join("")}
+      </ul>
+    </div>
   `;
 };
 

@@ -54,6 +54,37 @@ test("analyzes rent market by monthly rent and rent per ping", () => {
   assert.equal(result.rent.medianUnit, 1600);
 });
 
+test("summarizes rent prices by km ranges and same district", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "台北市",
+    district: "大安區",
+    rooms: 2,
+    area: 20,
+    monthlyRent: 32000,
+    latitude: 25.033,
+    longitude: 121.565
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "r-1km", monthlyRent: 30000, latitude: 25.0375, longitude: 121.565 },
+    { ...baseRent, id: "r-3km", monthlyRent: 34000, latitude: 25.051, longitude: 121.565 },
+    { ...baseRent, id: "r-5km", monthlyRent: 38000, latitude: 25.069, longitude: 121.565 },
+    { ...baseRent, id: "r-district", monthlyRent: 38000, latitude: null, longitude: null }
+  ]);
+  const buckets = Object.fromEntries(result.rent.rentDistanceBuckets.map((bucket) => [bucket.label, bucket]));
+
+  assert.equal(buckets["1km內"].count, 1);
+  assert.equal(Math.round(buckets["1km內"].averagePrimary), 30000);
+  assert.equal(Math.round(buckets["1km內"].diffPercent * 10) / 10, 6.7);
+  assert.equal(buckets["3km內"].count, 2);
+  assert.equal(Math.round(buckets["3km內"].averagePrimary), 32000);
+  assert.equal(buckets["5km內"].count, 3);
+  assert.equal(Math.round(buckets["5km內"].averagePrimary), 34000);
+  assert.equal(buckets["同行政區不限距離"].count, 4);
+  assert.equal(Math.round(buckets["同行政區不限距離"].averagePrimary), 35000);
+});
+
 test("can compare a sale listing against rental market", () => {
   const result = analyzer.analyzeMarket(baseSale, [
     {
