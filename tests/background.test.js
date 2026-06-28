@@ -13,6 +13,7 @@ const flushAll = async () => {
 
 const loadBackground = (storageOverrides = {}) => {
   const alarmListeners = [];
+  const messageListeners = [];
   const updatedListeners = [];
   const storage = {
     listings: [],
@@ -90,7 +91,13 @@ const loadBackground = (storageOverrides = {}) => {
         }
       }
     },
-    runtime: { onMessage: { addListener() {} } },
+    runtime: {
+      onMessage: {
+        addListener(listener) {
+          messageListeners.push(listener);
+        }
+      }
+    },
     alarms: {
       create() {},
       onAlarm: {
@@ -126,7 +133,15 @@ const loadBackground = (storageOverrides = {}) => {
   context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(read("src/background.js"), context);
-  return { alarmListeners, storage, tabs };
+  const sendRuntimeMessage = (message) =>
+    new Promise((resolve) => {
+      for (const listener of messageListeners) {
+        const asyncResponse = listener(message, {}, resolve);
+        if (asyncResponse) return;
+      }
+      resolve(undefined);
+    });
+  return { alarmListeners, storage, tabs, sendRuntimeMessage };
 };
 
 const assertPollingUsesOneBackgroundTab = async (analysisMode) => {
@@ -166,4 +181,30 @@ test("polling processes only one due sale watch with one source", async () => {
 
 test("polling processes only one due rent watch with one source", async () => {
   await assertPollingUsesOneBackgroundTab("rent");
+});
+
+test("analysis responds from local data while refreshing regional cache in background", async () => {
+  const listing = {
+    id: "current-sale",
+    url: "https://sale.591.com.tw/home/house/detail/2/123.html",
+    mode: "sale",
+    city: "新北市",
+    district: "板橋區",
+    totalPrice: 1800,
+    area: 25
+  };
+  const { storage, tabs, sendRuntimeMessage } = loadBackground();
+
+  const response = await sendRuntimeMessage({
+    type: "ANALYZE_NEARBY",
+    listing,
+    analysisMode: "sale"
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.localOnly, true);
+  assert.equal(response.refreshing, true);
+  assert.equal(response.scraped, 0);
+  assert.equal(storage.listings.length, 1);
+  assert.equal(tabs.created.length, 0);
 });

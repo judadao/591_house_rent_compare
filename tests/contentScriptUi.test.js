@@ -53,7 +53,7 @@ const createChromeMock = () => {
     panelEnabled: false,
     panelMode: "",
     analysisTimestamps: {},
-    marketDataVersion: 8,
+    marketDataVersion: 9,
     autoAnalysisEnabled: true
   };
   const sentMessages = [];
@@ -168,7 +168,7 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.equal(chrome.sentMessages.length, 1);
   assert.equal(chrome.sentMessages.at(-1).type, "ANALYZE_NEARBY");
   assert.equal(chrome.sentMessages.at(-1).analysisMode, "rent");
-  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /已收集 3 筆/);
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /已用本機資料完成分析/);
 
   assert.equal(dom.window.document.querySelector(".hmk-reset"), null);
 });

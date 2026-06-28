@@ -3,7 +3,8 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 8;
+const MARKET_DATA_VERSION = 9;
+const REGION_REFRESH_KEY = "marketRegionRefreshState";
 const analysisInFlight = new Set();
 const REGION_SECTION_IDS = {
   "新北市|板橋區": { regionid: 3, section: 26 }
@@ -44,6 +45,14 @@ const storageSetWatchlist = (watchlist) => chrome.storage.local.set({ [polling.W
 const addToWatchlist = async (listing, mode = "") => {
   const watchlist = await storageGetWatchlist();
   await storageSetWatchlist(polling.addWatch(watchlist, listing, mode));
+};
+
+const regionCacheKey = (base, mode = base.mode) =>
+  [base.city || "", base.district || "", mode || ""].join("|");
+
+const regionDataIsFresh = (state = {}, key, now = Date.now()) => {
+  const timestamp = Date.parse(state[key] || "");
+  return Number.isFinite(timestamp) && now - timestamp < polling.DEFAULT_POLL_MINUTES * 60 * 1000;
 };
 
 const injectContentScripts = async (tabId) => {
@@ -106,6 +115,21 @@ const marketSearchUrls = (base, analysisMode = base.mode) => {
   }
 
   return urls;
+};
+
+const regionalMarketSources = (base, analysisMode = base.mode) => {
+  const searchBase = { ...base, mode: analysisMode };
+  const sources = [];
+  const add = (label, url, marketKind = "listing") => sources.push({ label, url, marketKind });
+  const regionSection = REGION_SECTION_IDS[`${searchBase.city}|${searchBase.district}`];
+  if (regionSection) {
+    const structured = new URL(searchBase.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/list");
+    structured.searchParams.set(searchBase.mode === "sale" ? "regionid" : "region", regionSection.regionid);
+    structured.searchParams.set("section", regionSection.section);
+    if (searchBase.mode === "sale") structured.searchParams.set("shType", "list");
+    add(`591 ${searchBase.mode === "sale" ? "買房" : "租屋"} ${searchBase.city}${searchBase.district}`, structured.toString(), "listing");
+  }
+  return sources.length ? sources : marketSearchUrls(searchBase, analysisMode).slice(0, 1);
 };
 
 const enrichWithSearchContext = (item, base, mode, source) => ({
@@ -186,6 +210,45 @@ const analyzeNearby = async (listing, requestedMode = "", options = {}) => {
   }
 };
 
+const refreshRegionalMarketData = async (listing, requestedMode = "", options = {}) => {
+  const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
+  const stateData = await chrome.storage.local.get({ [REGION_REFRESH_KEY]: {} });
+  const nextState = { ...(stateData[REGION_REFRESH_KEY] || {}) };
+  let scraped = [];
+  for (const mode of modes) {
+    const key = regionCacheKey(listing, mode);
+    if (!options.force && regionDataIsFresh(nextState, key)) continue;
+    const lockKey = `region:${key}`;
+    if (analysisInFlight.has(lockKey)) continue;
+    analysisInFlight.add(lockKey);
+    try {
+      const sources = regionalMarketSources(listing, mode);
+      scraped = scraped.concat(await scrapeSearchSources(sources, listing, mode));
+      nextState[key] = new Date().toISOString();
+    } finally {
+      analysisInFlight.delete(lockKey);
+    }
+  }
+  const result = await upsertItems(scraped);
+  await chrome.storage.local.set({ [REGION_REFRESH_KEY]: nextState });
+  return { scraped: scraped.length, added: result.added, total: result.total };
+};
+
+const queueRegionalRefresh = (listing, requestedMode = "", options = {}) => {
+  setTimeout(() => {
+    refreshRegionalMarketData(listing, requestedMode, options).catch(() => {});
+  }, 0);
+};
+
+const analyzeFromLocalData = async (listing, requestedMode = "", options = {}) => {
+  await upsertItems([listing]);
+  if (options.track !== false) await addToWatchlist(listing, requestedMode);
+  const mode = requestedMode || listing.mode;
+  if (options.refresh !== false) queueRegionalRefresh(listing, requestedMode, { force: Boolean(options.forceRefresh) });
+  const total = (await storageGetItems()).length;
+  return { scraped: 0, added: 0, total, refreshing: options.refresh !== false, localOnly: true };
+};
+
 const resetAndAnalyzeNearby = async (listing, requestedMode = "", options = {}) => {
   await chrome.storage.local.set({
     listings: [],
@@ -193,9 +256,10 @@ const resetAndAnalyzeNearby = async (listing, requestedMode = "", options = {}) 
     marketDataVersion: MARKET_DATA_VERSION,
     [polling.MARKET_DATA_UPDATED_AT_KEY]: "",
     [polling.WATCHLIST_KEY]: [],
-    [polling.POLL_STATE_KEY]: {}
+    [polling.POLL_STATE_KEY]: {},
+    [REGION_REFRESH_KEY]: {}
   });
-  return analyzeNearby(listing, requestedMode, options);
+  return analyzeFromLocalData(listing, requestedMode, { ...options, forceRefresh: true });
 };
 
 const pollWatchlist = async () => {
@@ -240,7 +304,7 @@ const pollWatchlist = async () => {
   let added = 0;
   for (const watch of due) {
     try {
-      const result = await analyzeNearby(watch.listing, watch.analysisMode, { track: false, sourceLimit: 1 });
+      const result = await refreshRegionalMarketData(watch.listing, watch.analysisMode, { track: false });
       scraped += result.scraped || 0;
       added += result.added || 0;
     } finally {
@@ -261,7 +325,7 @@ const pollWatchlist = async () => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "ANALYZE_NEARBY") {
-    analyzeNearby(message.listing, message.analysisMode, { sourceLimit: message.sourceLimit || null })
+    analyzeFromLocalData(message.listing, message.analysisMode, { forceRefresh: Boolean(message.forceRefresh) })
       .then((result) => sendResponse({ ok: true, ...result }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;

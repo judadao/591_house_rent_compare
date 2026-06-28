@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 8;
+const MARKET_DATA_VERSION = 9;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
@@ -247,7 +247,7 @@ const shouldAutoAnalyze = (current, data, report, mode) => {
   return modeItems.length < MIN_AUTO_SCOPE_COUNT || reportScopeCount(report, mode) < MIN_AUTO_SCOPE_COUNT;
 };
 
-const requestNearbyAnalysis = async (listing, mode, { force = false, reset = false, sourceLimit = null } = {}) => {
+const requestNearbyAnalysis = async (listing, mode, { force = false, reset = false, sourceLimit = null, forceRefresh = false } = {}) => {
   const key = analysisKey(listing, mode);
   const cooldownMs = 6 * 60 * 60 * 1000;
   const stored = await chrome.storage.local.get({ analysisTimestamps: {} });
@@ -260,7 +260,8 @@ const requestNearbyAnalysis = async (listing, mode, { force = false, reset = fal
     type: reset ? "RESET_AND_ANALYZE" : "ANALYZE_NEARBY",
     listing,
     analysisMode: listing.mode === "sale" ? mode : "",
-    sourceLimit
+    sourceLimit,
+    forceRefresh
   });
   if (response?.ok) {
     const nextStorage = {
@@ -519,8 +520,8 @@ const renderInPagePanel = async (statusText = "") => {
         actionButton.disabled = true;
         actionButton.textContent = "分析中...";
       });
-      const response = await requestNearbyAnalysis(current, panelMode, { force: true });
-      await renderInPagePanel(response?.ok ? `已收集 ${response.scraped} 筆，新增 ${response.added} 筆。` : `分析失敗：${response?.error || "未知錯誤"}`);
+      const response = await requestNearbyAnalysis(current, panelMode, { force: true, forceRefresh: true });
+      await renderInPagePanel(response?.ok ? "已用本機資料完成分析，背景正在更新行政區資料庫。" : `分析失敗：${response?.error || "未知錯誤"}`);
     });
   });
   const autoKey = `${current.id || current.url}:${panelMode}`;
