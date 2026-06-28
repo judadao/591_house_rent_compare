@@ -93,7 +93,7 @@ test("city scope keeps same city while allowing broader districts", () => {
   assert.equal(result.listing.comparables[0].id, "same-city");
 });
 
-test("market slice counts radius items and age buckets", () => {
+test("market slice counts default 5km radius items and age buckets", () => {
   const base = {
     ...baseSale,
     latitude: 25.033,
@@ -101,12 +101,12 @@ test("market slice counts radius items and age buckets", () => {
     age: 8
   };
   const near = { ...base, id: "near", latitude: 25.034, longitude: 121.566, totalPrice: 3100, pricePerPing: 124, age: 9, marketKind: "listing" };
+  const mid = { ...base, id: "mid", latitude: 25.06, longitude: 121.59, totalPrice: 3200, pricePerPing: 128, age: 12, marketKind: "listing" };
   const far = { ...base, id: "far", latitude: 25.16, longitude: 121.7, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
-  const result = analyzer.analyzeMarket(base, [near, far], { radiusKm: 2 });
+  const result = analyzer.analyzeMarket(base, [near, mid, far]);
 
-  assert.equal(result.listing.marketSlice.scopeCount, 1);
-  assert.equal(result.listing.marketSlice.ageBuckets[0].label, "6-10年");
-  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 1);
+  assert.equal(result.listing.marketSlice.scopeCount, 2);
+  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 2);
 });
 
 test("market scope falls back to area block when coordinates are absent", () => {

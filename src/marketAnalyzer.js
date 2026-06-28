@@ -41,7 +41,7 @@
   const marketScopeMatch = (base, item, options = {}) => {
     if (base.mode !== item.mode) return false;
     if (base.city && item.city && base.city !== item.city) return false;
-    const radiusKm = Number(options.radiusKm ?? 2);
+    const radiusKm = Number(options.radiusKm ?? 5);
     const distance = distanceKm(base, item);
     if (distance !== null) return distance <= radiusKm;
     if (options.regionScope === "city") return Boolean(base.city && item.city && base.city === item.city);

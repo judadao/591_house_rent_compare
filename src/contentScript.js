@@ -150,6 +150,33 @@ const panelStyles = `
   #hmk-panel a{color:#1d4ed8;text-decoration:none;font-weight:650}
 `;
 
+const analysisKey = (listing, mode) => `analysis:${listing.id || listing.url}:${mode}`;
+
+const requestNearbyAnalysis = async (listing, mode, { force = false } = {}) => {
+  const key = analysisKey(listing, mode);
+  const cooldownMs = 6 * 60 * 60 * 1000;
+  const stored = await chrome.storage.local.get({ analysisTimestamps: {} });
+  const lastRun = stored.analysisTimestamps[key] || 0;
+  if (!force && Date.now() - lastRun < cooldownMs) {
+    return { ok: true, skipped: true };
+  }
+
+  const response = await chrome.runtime.sendMessage({
+    type: "ANALYZE_NEARBY",
+    listing,
+    analysisMode: listing.mode === "sale" ? mode : ""
+  });
+  if (response?.ok) {
+    await chrome.storage.local.set({
+      analysisTimestamps: {
+        ...stored.analysisTimestamps,
+        [key]: Date.now()
+      }
+    });
+  }
+  return response;
+};
+
 const marketBucketHtml = (bucket, mode) => {
   const hasData = bucket.count > 0;
   const slice = bucket.marketSlice || {};
@@ -165,11 +192,11 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
-      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，預設 2km 半徑；無座標時以區域塊/行政區估算。</p>
+      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，預設 5km 半徑；無座標時以區域塊/行政區估算。</p>
       ${
         hasData
           ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
-          : `<p class="hmk-muted">目前本機資料不足，按下方按鈕自動抓附近行情。</p>`
+          : `<p class="hmk-muted">目前本機資料不足，按下方按鈕自動抓附近行情。</p><button class="hmk-action hmk-inline-action">分析附近行情</button>`
       }
       ${marketSliceHtml(slice, mode)}
       <ol>
@@ -260,12 +287,22 @@ const renderInPagePanel = async (statusText = "") => {
       await renderInPagePanel();
     });
   });
-  panel.querySelector(".hmk-action").addEventListener("click", async () => {
-    panel.querySelector(".hmk-action").disabled = true;
-    panel.querySelector(".hmk-action").textContent = "分析中...";
-    const response = await chrome.runtime.sendMessage({ type: "ANALYZE_NEARBY", listing: current, analysisMode: current.mode === "sale" ? panelMode : "" });
-    await renderInPagePanel(response?.ok ? `已收集 ${response.scraped} 筆，新增 ${response.added} 筆。` : `分析失敗：${response?.error || "未知錯誤"}`);
+  panel.querySelectorAll(".hmk-action").forEach((button) => {
+    button.addEventListener("click", async () => {
+      panel.querySelectorAll(".hmk-action").forEach((actionButton) => {
+        actionButton.disabled = true;
+        actionButton.textContent = "分析中...";
+      });
+      const response = await requestNearbyAnalysis(current, panelMode, { force: true });
+      await renderInPagePanel(response?.ok ? `已收集 ${response.scraped} 筆，新增 ${response.added} 筆。` : `分析失敗：${response?.error || "未知錯誤"}`);
+    });
   });
+
+  requestNearbyAnalysis(current, panelMode).then((response) => {
+    if (response?.ok && !response.skipped && response.scraped > 0) {
+      renderInPagePanel(`背景已更新：收集 ${response.scraped} 筆，新增 ${response.added} 筆。`).catch(() => {});
+    }
+  }).catch(() => {});
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

@@ -1,6 +1,8 @@
-importScripts("listingParser.js");
+importScripts("listingParser.js", "pollingStore.js");
 
 const parser = globalThis.RentCompareParser;
+const polling = globalThis.HouseMarketPollingStore;
+const POLL_ALARM_NAME = "house-market-poll";
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
   new Promise((resolve, reject) => {
@@ -26,6 +28,18 @@ const storageGetItems = async () => {
 };
 
 const storageSetItems = (items) => chrome.storage.local.set({ listings: items });
+
+const storageGetWatchlist = async () => {
+  const data = await chrome.storage.local.get({ [polling.WATCHLIST_KEY]: [] });
+  return data[polling.WATCHLIST_KEY] || [];
+};
+
+const storageSetWatchlist = (watchlist) => chrome.storage.local.set({ [polling.WATCHLIST_KEY]: watchlist });
+
+const addToWatchlist = async (listing, mode = "") => {
+  const watchlist = await storageGetWatchlist();
+  await storageSetWatchlist(polling.addWatch(watchlist, listing, mode));
+};
 
 const injectContentScripts = async (tabId) => {
   await chrome.scripting.executeScript({
@@ -99,6 +113,7 @@ const scrapeSearchTab = async (source) => {
 
 const analyzeNearby = async (listing, requestedMode = "") => {
   await upsertItems([listing]);
+  await addToWatchlist(listing, requestedMode);
   let scraped = [];
   const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
   for (const mode of modes) {
@@ -114,6 +129,28 @@ const analyzeNearby = async (listing, requestedMode = "") => {
   return { scraped: scraped.length, added: result.added, total: result.total };
 };
 
+const pollWatchlist = async () => {
+  const data = await chrome.storage.local.get({
+    [polling.WATCHLIST_KEY]: [],
+    [polling.POLL_STATE_KEY]: {}
+  });
+  const watchlist = data[polling.WATCHLIST_KEY] || [];
+  let pollState = data[polling.POLL_STATE_KEY] || {};
+  const due = polling.dueWatches(watchlist, pollState);
+  let scraped = 0;
+  let added = 0;
+
+  for (const watch of due.slice(0, 5)) {
+    const result = await analyzeNearby(watch.listing, watch.analysisMode);
+    scraped += result.scraped;
+    added += result.added;
+    pollState = polling.markPolled(pollState, watch);
+  }
+
+  await chrome.storage.local.set({ [polling.POLL_STATE_KEY]: pollState });
+  return { checked: due.length, scraped, added };
+};
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "ANALYZE_NEARBY") {
     analyzeNearby(message.listing, message.analysisMode)
@@ -123,6 +160,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   return false;
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(POLL_ALARM_NAME, {
+    periodInMinutes: polling.DEFAULT_POLL_MINUTES
+  });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create(POLL_ALARM_NAME, {
+    periodInMinutes: polling.DEFAULT_POLL_MINUTES
+  });
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === POLL_ALARM_NAME) {
+    pollWatchlist().catch(() => {});
+  }
 });
 
 chrome.action.onClicked.addListener(async (tab) => {

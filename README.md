@@ -23,13 +23,14 @@ Chrome extension for analyzing Taiwan housing listings against nearby asking-pri
 
 The panel summarizes the market by location first, then comparable conditions:
 
-- Default location range: listings within 2km when coordinates are available.
+- Default location range: listings within 5km when coordinates are available.
 - Fallback range: known area block, such as 府中 or 江子翠, then district, then city.
 - Shows total listings inside the range.
 - Shows price by age bucket, same-size listings, and listings matching extra conditions such as building type, room count, elevator, and parking.
 - Sale prices and transaction prices are displayed separately.
 
 The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. Automatic analysis opens normal background search tabs for current listing conditions, collects visible results, then closes those tabs.
+Analyzed listings are kept in a local watchlist. The background worker polls watched conditions every 3 hours to refresh local market data.
 
 ## Development
 
@@ -46,6 +47,7 @@ The test suite also includes jsdom-based UI tests for the in-page panel toggle, 
 - `manifest.json`: Chrome MV3 extension configuration.
 - `src/listingParser.js`: Shared listing parsing and normalization logic.
 - `src/marketAnalyzer.js`: Comparable scoring and market benchmark calculations.
+- `src/pollingStore.js`: Local watchlist and polling schedule helpers.
 - `src/background.js`: Background search orchestration for the in-page panel.
 - `src/contentScript.js`: Extracts listing data from 591 pages.
 - `src/popup.html`: Extension popup markup.
