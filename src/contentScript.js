@@ -212,6 +212,8 @@ const panelStyles = `
   #hmk-panel .hmk-muted{color:#64748b}
   #hmk-panel .hmk-status{margin:6px 0}
   #hmk-panel .hmk-warning{margin-top:6px;color:#b45309}
+  #hmk-panel .hmk-badge{display:inline-block;margin-right:5px;padding:1px 5px;border-radius:4px;background:#dcfce7;color:#166534;font-size:11px;font-weight:700}
+  #hmk-panel .hmk-badge.ref{background:#e2e8f0;color:#475569}
   #hmk-panel .hmk-poll{margin:8px 0;padding:7px 8px;border-radius:6px;background:#fef3c7;color:#78350f}
   #hmk-panel .hmk-poll.idle,#hmk-panel .hmk-poll.done,#hmk-panel .hmk-poll.skipped{background:#f1f5f9;color:#475569}
   #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
@@ -299,19 +301,19 @@ const areaFilterHtml = (options = {}) => {
   `;
 };
 
-const rentAreaRuleHtml = (area) => {
+const estimateAreaRuleHtml = (area, mode) => {
   const rule = Number.isFinite(area)
-    ? `比租屋固定採目前物件 ${ping(area)} 的 ±2 坪範圍，不使用上方權狀篩選。`
-    : "比租屋需要目前物件坪數；若頁面抓不到坪數，租屋同坪數比較會放寬。";
-  return `<section class="hmk-area-filter"><p><strong>比租屋坪數規則</strong></p><p class="hmk-muted">${escapeHtml(rule)}</p></section>`;
+    ? `${mode === "rent" ? "比租屋" : "估算"}固定採目前物件 ${ping(area)} 的 ±2 坪範圍；坪數外物件只做附近參考。`
+    : "估算需要目前物件坪數；若頁面抓不到坪數，坪數條件會放寬。";
+  return `<section class="hmk-area-filter"><p><strong>估算坪數規則</strong></p><p class="hmk-muted">${escapeHtml(rule)}</p></section>`;
 };
 
 const marketBucketHtml = (bucket, mode) => {
-  const hasData = bucket.count > 0;
+  const hasData = bucket.estimateCount > 0;
   const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
-  const pricedCount = bucket.pricedCount ?? bucket.count;
+  const pricedCount = bucket.estimateCount ?? bucket.pricedCount ?? 0;
   const areaRangeLabel = bucket.areaRange?.label || "權狀不限";
   const sampleWarning = pricedCount < 5
     ? `<p class="hmk-warning">樣本不足：可估價少於 5 筆，只能當粗略參考。</p>`
@@ -328,11 +330,11 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
-      <p>找到 <strong>${escapeHtml(bucket.count)}</strong> 個範圍物件。</p>
-      <p class="hmk-muted">地點範圍：優先鄰近捷運站；資料太少時放寬到區塊、行政區與 30km 內座標。權狀條件：${escapeHtml(areaRangeLabel)}。</p>
+      <p>附近顯示 <strong>${escapeHtml(bucket.displayCount ?? bucket.count)}</strong> 個物件，<strong>${escapeHtml(pricedCount)}</strong> 個納入估算。</p>
+      <p class="hmk-muted">地點範圍：優先鄰近捷運站；資料太少時放寬到區塊、行政區與 30km 內座標。估算只使用 ${escapeHtml(areaRangeLabel)}，坪數外只列為附近參考。</p>
       ${
         hasData
-          ? `<p>其中 <strong>${escapeHtml(pricedCount)}</strong> 個有價格可計算：中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方依權狀坪數接近度排序，再看距離。</p>`
+          ? `<p>估算樣本中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方仍列附近物件，並標註是否納入估算。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${mode === "rent" ? rentDistanceBucketsHtml(bucket.rentDistanceBuckets || []) : ""}
@@ -340,7 +342,7 @@ const marketBucketHtml = (bucket, mode) => {
       <ol>
         ${bucket.comparables
           .slice(0, 12)
-          .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml([ping(item.area), distanceText(item), item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`].filter(Boolean).join(" / "))}</span></li>`)
+          .map((item) => `<li><span class="hmk-badge ${item.usedForEstimate ? "" : "ref"}">${item.usedForEstimate ? "納入估算" : "附近參考"}</span><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml([ping(item.area), distanceText(item), item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`].filter(Boolean).join(" / "))}</span></li>`)
           .join("")}
       </ol>
     </section>
@@ -462,7 +464,7 @@ const renderInPagePanel = async (statusText = "") => {
         <input class="hmk-auto-toggle" type="checkbox" ${data.autoAnalysisEnabled ? "checked" : ""}>
         <span class="hmk-slider" aria-hidden="true"></span>
       </label>
-      ${panelMode === "rent" ? rentAreaRuleHtml(current.area) : areaFilterHtml(data.options || {})}
+      ${estimateAreaRuleHtml(current.area, panelMode)}
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
       ${pollStatusHtml(data.marketPollStatus)}

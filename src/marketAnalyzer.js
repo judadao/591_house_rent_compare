@@ -50,11 +50,11 @@
     return { min: null, max: null, label: "權狀不限" };
   };
 
-  const rentCompareAreaRange = (base) => {
-    if (!Number.isFinite(base.area)) return { min: null, max: null, label: "租屋同坪數：目前物件坪數未知" };
+  const estimateAreaRange = (base) => {
+    if (!Number.isFinite(base.area)) return { min: null, max: null, label: "估算坪數：目前物件坪數未知" };
     const min = Math.max(0, Math.round((base.area - 2) * 10) / 10);
     const max = Math.round((base.area + 2) * 10) / 10;
-    return { min, max, label: `租屋同坪數：${min}-${max}坪（目前坪數±2坪）` };
+    return { min, max, label: `估算坪數：${min}-${max}坪（目前坪數±2坪）` };
   };
 
   const areaRangeMatch = (item, range) => {
@@ -234,7 +234,7 @@
 
   const rentDistanceSummary = (base, items, options = {}) => {
     if (base.mode !== "rent") return [];
-    const areaRange = rentCompareAreaRange(base);
+    const areaRange = estimateAreaRange(base);
     const pricedItems = items
       .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange))
       .filter((item) => Number.isFinite(primaryValue(item)));
@@ -334,16 +334,19 @@
 
   const analyzeBucket = (base, items, label, options = {}) => {
     const scopedItems = scopedMarketItems(base, items, options);
-    const areaRange = base.mode === "rent" ? rentCompareAreaRange(base) : resolveAreaRange(base, options);
+    const areaRange = estimateAreaRange(base);
     const areaScopedItems = scopedItems.filter((item) => areaRangeMatch(item, areaRange));
-    const strictComparables = comparableRankedItems(
+    const displayComparables = comparableRankedItems(base, scopedItems).slice(0, 20);
+    const calculationComparables = comparableRankedItems(
       base,
       areaScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }))
     );
-    const minComparableCount = Number(options.minComparableCount ?? 5);
-    const comparableMode = strictComparables.length >= minComparableCount ? "strict" : "scope";
-    const comparables = (comparableMode === "strict" ? strictComparables : comparableRankedItems(base, areaScopedItems)).slice(0, 20);
-    const pricedComparables = comparables.filter((item) => Number.isFinite(primaryValue(item)));
+    const calculationKeys = new Set(calculationComparables.map((item) => item.id || item.url || JSON.stringify(item)));
+    const comparables = displayComparables.map((item) => ({
+      ...item,
+      usedForEstimate: calculationKeys.has(item.id || item.url || JSON.stringify(item))
+    }));
+    const pricedComparables = calculationComparables.filter((item) => Number.isFinite(primaryValue(item)));
 
     const primaryValues = pricedComparables.map(primaryValue);
     const unitValues = pricedComparables.map(unitValue);
@@ -367,11 +370,14 @@
       p25Unit: percentile(unitValues, 0.25),
       p75Unit: percentile(unitValues, 0.75),
       diffPercent,
-      comparableMode,
+      comparableMode: "area-estimate",
       areaRange,
       rentDistanceBuckets: base.mode === "rent" ? rentDistanceSummary(base, items, options) : [],
       scopeCount: scopedItems.length,
       areaScopeCount: areaScopedItems.length,
+      displayCount: comparables.length,
+      estimateCount: pricedComparables.length,
+      calculationComparables,
       comparables,
       marketSlice: sliceMarket(base, items, options)
     };
@@ -420,7 +426,7 @@
     primaryValue,
     autoAreaRange,
     resolveAreaRange,
-    rentCompareAreaRange,
+    estimateAreaRange,
     areaRangeMatch,
     isUsableMarketItem,
     distanceKm,

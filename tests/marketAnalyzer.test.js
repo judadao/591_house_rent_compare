@@ -104,8 +104,9 @@ test("rent comparison ignores manual area filters and uses current area plus min
     { ...baseRent, id: "too-large", area: 22.1, monthlyRent: 60000 }
   ], { compareAreaPreset: "custom", compareAreaMin: 30 });
 
-  assert.equal(result.rent.areaRange.label, "租屋同坪數：18-22坪（目前坪數±2坪）");
-  assert.deepEqual(result.rent.comparables.map((item) => item.id), ["fit-low", "fit-high"]);
+  assert.equal(result.rent.areaRange.label, "估算坪數：18-22坪（目前坪數±2坪）");
+  assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["fit-low", "fit-high"]);
+  assert.deepEqual(result.rent.comparables.filter((item) => item.usedForEstimate).map((item) => item.id), ["fit-low", "fit-high"]);
   assert.equal(result.rent.medianPrimary, 32000);
 });
 
@@ -222,16 +223,20 @@ test("falls back to scoped items when strict comparable list is too small", () =
   const base = { ...baseSale, area: 30, totalPrice: 1900, pricePerPing: 63.3 };
   const items = [
     { ...base, id: "strict-one", area: 34, totalPrice: 1980, pricePerPing: 58.3, marketKind: "listing" },
-    { ...base, id: "near-size", district: "other", area: 29, totalPrice: 1688, pricePerPing: 58.2, marketKind: "listing" },
+    { ...base, id: "near-size", area: 29, totalPrice: 1688, pricePerPing: 58.2, marketKind: "listing" },
     { ...base, id: "far-size", district: "other", area: 22, totalPrice: 1398, pricePerPing: 63.5, marketKind: "listing" }
   ];
   const result = analyzer.analyzeMarket(base, items);
 
   assert.equal(result.listing.marketSlice.scopeCount, 3);
-  assert.equal(result.listing.comparableMode, "scope");
+  assert.equal(result.listing.comparableMode, "area-estimate");
   assert.equal(result.listing.count, 3);
+  assert.equal(result.listing.displayCount, 3);
+  assert.equal(result.listing.estimateCount, 1);
   assert.equal(result.listing.comparables[0].id, "near-size");
   assert.equal(result.listing.comparables[1].id, "strict-one");
+  assert.equal(result.listing.comparables[0].usedForEstimate, true);
+  assert.equal(result.listing.comparables[1].usedForEstimate, false);
 });
 
 test("keeps scoped listings without price in the displayed comparable list", () => {
@@ -267,20 +272,21 @@ test("filters empty 591 search pages out of market scope", () => {
   assert.equal(result.listing.comparables[0].id, "real-listing");
 });
 
-test("area range is unrestricted by default and supports one-sided custom filters", () => {
+test("estimates use current area plus minus two and ignore manual area filters", () => {
   const base = { ...baseSale, area: 30 };
   const items = [
     { ...base, id: "small", area: 18, totalPrice: 1200, pricePerPing: 66.7, marketKind: "listing" },
-    { ...base, id: "fit", area: 25, totalPrice: 1500, pricePerPing: 60, marketKind: "listing" },
+    { ...base, id: "fit", area: 29, totalPrice: 1500, pricePerPing: 60, marketKind: "listing" },
     { ...base, id: "large", area: 45, totalPrice: 2500, pricePerPing: 55.6, marketKind: "listing" }
   ];
 
   const unrestricted = analyzer.analyzeMarket(base, items);
-  const maxOnly = analyzer.analyzeMarket(base, items, { compareAreaPreset: "custom", compareAreaMax: 30 });
-  const minOnly = analyzer.analyzeMarket(base, items, { compareAreaPreset: "custom", compareAreaMin: 30 });
+  const customFilter = analyzer.analyzeMarket(base, items, { compareAreaPreset: "custom", compareAreaMin: 40 });
 
   assert.equal(unrestricted.listing.count, 3);
-  assert.equal(unrestricted.listing.areaRange.label, "權狀不限");
-  assert.deepEqual(maxOnly.listing.comparables.map((item) => item.id), ["fit", "small"]);
-  assert.deepEqual(minOnly.listing.comparables.map((item) => item.id), ["large"]);
+  assert.equal(unrestricted.listing.areaRange.label, "估算坪數：28-32坪（目前坪數±2坪）");
+  assert.equal(unrestricted.listing.estimateCount, 1);
+  assert.equal(unrestricted.listing.medianPrimary, 1500);
+  assert.equal(customFilter.listing.estimateCount, 1);
+  assert.equal(customFilter.listing.medianPrimary, 1500);
 });
