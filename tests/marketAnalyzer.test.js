@@ -162,3 +162,19 @@ test("market scope accepts inherited search context", () => {
   assert.equal(result.listing.marketSlice.scopeCount, 1);
   assert.equal(result.listing.comparables[0].id, "inherited");
 });
+
+test("falls back to scoped items when strict comparable list is too small", () => {
+  const base = { ...baseSale, area: 30, totalPrice: 1900, pricePerPing: 63.3 };
+  const items = [
+    { ...base, id: "strict-one", area: 34, totalPrice: 1980, pricePerPing: 58.3, marketKind: "listing" },
+    { ...base, id: "near-size", district: "other", area: 29, totalPrice: 1688, pricePerPing: 58.2, marketKind: "listing" },
+    { ...base, id: "far-size", district: "other", area: 22, totalPrice: 1398, pricePerPing: 63.5, marketKind: "listing" }
+  ];
+  const result = analyzer.analyzeMarket(base, items);
+
+  assert.equal(result.listing.marketSlice.scopeCount, 3);
+  assert.equal(result.listing.comparableMode, "scope");
+  assert.equal(result.listing.count, 3);
+  assert.equal(result.listing.comparables[0].id, "near-size");
+  assert.equal(result.listing.comparables[1].id, "strict-one");
+});

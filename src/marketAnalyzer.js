@@ -194,6 +194,36 @@
     return Math.round(score * 10) / 10;
   };
 
+  const areaDeltaRatio = (base, item) => {
+    if (!base.area || !item.area) return null;
+    return Math.abs(item.area - base.area) / base.area;
+  };
+
+  const comparableRankedItems = (base, items) =>
+    items
+      .filter((item) => Number.isFinite(primaryValue(item)))
+      .map((item) => ({
+        ...item,
+        distanceKm: distanceKm(base, item),
+        similarityScore: similarityScore(base, item),
+        areaDeltaRatio: areaDeltaRatio(base, item)
+      }))
+      .sort((a, b) => {
+        const areaA = Number.isFinite(a.areaDeltaRatio) ? Math.round(a.areaDeltaRatio * 10000) / 10000 : null;
+        const areaB = Number.isFinite(b.areaDeltaRatio) ? Math.round(b.areaDeltaRatio * 10000) / 10000 : null;
+        if (areaA !== null && areaB !== null && areaA !== areaB) {
+          return areaA - areaB;
+        }
+        if (areaA !== null && areaB === null) return -1;
+        if (areaA === null && areaB !== null) return 1;
+        const hasDistanceA = Number.isFinite(a.distanceKm);
+        const hasDistanceB = Number.isFinite(b.distanceKm);
+        if (hasDistanceA && hasDistanceB && a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
+        if (hasDistanceA && !hasDistanceB) return -1;
+        if (!hasDistanceA && hasDistanceB) return 1;
+        return b.similarityScore - a.similarityScore;
+      });
+
   const isComparable = (base, item, options = {}) => {
     const tolerance = Number(options.areaTolerance ?? 0.25);
     if (base.mode !== item.mode) return false;
@@ -208,16 +238,13 @@
 
   const analyzeBucket = (base, items, label, options = {}) => {
     const scopedItems = scopedMarketItems(base, items, options);
-    const comparables = scopedItems
-      .filter((item) => isComparable(base, item, options))
-      .map((item) => ({ ...item, distanceKm: distanceKm(base, item), similarityScore: similarityScore(base, item) }))
-      .sort((a, b) => {
-        if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
-        if (Number.isFinite(a.distanceKm)) return -1;
-        if (Number.isFinite(b.distanceKm)) return 1;
-        return b.similarityScore - a.similarityScore;
-      })
-      .slice(0, 20);
+    const strictComparables = comparableRankedItems(
+      base,
+      scopedItems.filter((item) => isComparable(base, item, options))
+    );
+    const minComparableCount = Number(options.minComparableCount ?? 5);
+    const comparableMode = strictComparables.length >= minComparableCount ? "strict" : "scope";
+    const comparables = (comparableMode === "strict" ? strictComparables : comparableRankedItems(base, scopedItems)).slice(0, 20);
 
     const primaryValues = comparables.map(primaryValue);
     const unitValues = comparables.map(unitValue);
@@ -240,6 +267,7 @@
       p25Unit: percentile(unitValues, 0.25),
       p75Unit: percentile(unitValues, 0.75),
       diffPercent,
+      comparableMode,
       comparables,
       marketSlice: sliceMarket(base, items, options)
     };

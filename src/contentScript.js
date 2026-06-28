@@ -225,14 +225,14 @@ const marketBucketHtml = (bucket, mode) => {
       <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，優先用鄰近捷運站；樣本太少時自動放寬到區塊、行政區與 30km 內座標，比價排序仍顯示距離。</p>
       ${
         hasData
-          ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
+          ? `<p>${bucket.comparableMode === "scope" ? "範圍案例" : "相似案例"} <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p><p class="hmk-muted">物件列表依權狀坪數接近度優先排序，再看距離。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${marketSliceHtml(slice, mode)}
       <ol>
         ${bucket.comparables
           .slice(0, 12)
-          .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml(distanceText(item))} / ${escapeHtml(item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`)}</span></li>`)
+          .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml([ping(item.area), distanceText(item), item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`].filter(Boolean).join(" / "))}</span></li>`)
           .join("")}
       </ol>
     </section>
