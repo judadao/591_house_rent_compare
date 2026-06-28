@@ -197,6 +197,12 @@ test("rent diff ignores stale rentPerPing and recalculates unit rent from monthl
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, -17.2);
 });
 
+test("display diff converts low ratio percent to percentage points below market", () => {
+  assert.equal(Math.round(analyzer.displayDiffPercent(-98.8) * 10) / 10, 1.2);
+  assert.equal(Math.round(analyzer.displayDiffPercent(-17.2) * 10) / 10, 17.2);
+  assert.equal(Math.round(analyzer.displayDiffPercent(30.8) * 10) / 10, 30.8);
+});
+
 test("rent estimate includes same-radius listings even when parsed district differs", () => {
   const baseRent = {
     mode: "rent",

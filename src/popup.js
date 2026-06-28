@@ -201,8 +201,8 @@ const renderMarketBucket = (bucket) => {
     bucket.diffPercent === null
       ? ""
       : bucket.diffPercent >= 0
-        ? `偏高 ${Math.abs(bucket.diffPercent).toFixed(1)}%`
-        : `偏低 ${Math.abs(bucket.diffPercent).toFixed(1)}%`;
+        ? `偏高 ${analyzer.displayDiffPercent(bucket.diffPercent).toFixed(1)}%`
+        : `偏低 ${analyzer.displayDiffPercent(bucket.diffPercent).toFixed(1)}%`;
   const unitText = state.current?.mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = state.current?.mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
   const pricedCount = bucket.pricedCount ?? bucket.count;

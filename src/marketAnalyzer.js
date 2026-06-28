@@ -477,6 +477,15 @@
     return (principal * monthlyRate * (1 + monthlyRate) ** months) / ((1 + monthlyRate) ** months - 1);
   };
 
+  const displayDiffPercent = (value) => {
+    if (!Number.isFinite(value)) return null;
+    const absolute = Math.abs(value);
+    if (value < 0 && absolute > 50 && absolute < 100) {
+      return 100 - absolute;
+    }
+    return absolute;
+  };
+
   const api = {
     percentile,
     median,
@@ -501,7 +510,8 @@
     isComparable,
     analyzeBucket,
     analyzeMarket,
-    estimateMortgagePayment
+    estimateMortgagePayment,
+    displayDiffPercent
   };
 
   globalScope.RentCompareMarketAnalyzer = api;

@@ -370,8 +370,8 @@ const marketBucketHtml = (bucket, mode) => {
     bucket.diffPercent === null
       ? ""
       : bucket.diffPercent >= 0
-        ? `偏高 ${Math.abs(bucket.diffPercent).toFixed(1)}%`
-        : `偏低 ${Math.abs(bucket.diffPercent).toFixed(1)}%`;
+        ? `偏高 ${analyzer.displayDiffPercent(bucket.diffPercent).toFixed(1)}%`
+        : `偏低 ${analyzer.displayDiffPercent(bucket.diffPercent).toFixed(1)}%`;
 
   return `
     <section class="hmk-report">
@@ -397,7 +397,8 @@ const marketBucketHtml = (bucket, mode) => {
 
 const diffText = (value) => {
   if (value === null || value === undefined || !Number.isFinite(value)) return "-";
-  return value >= 0 ? `高 ${Math.abs(value).toFixed(1)}%` : `低 ${Math.abs(value).toFixed(1)}%`;
+  const percent = analyzer.displayDiffPercent(value).toFixed(1);
+  return value >= 0 ? `高 ${percent}%` : `低 ${percent}%`;
 };
 
 const rentDistanceBucketsHtml = (buckets) => {
