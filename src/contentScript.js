@@ -299,6 +299,13 @@ const areaFilterHtml = (options = {}) => {
   `;
 };
 
+const rentAreaRuleHtml = (area) => {
+  const rule = Number.isFinite(area)
+    ? `比租屋固定採目前物件 ${ping(area)} 的 ±2 坪範圍，不使用上方權狀篩選。`
+    : "比租屋需要目前物件坪數；若頁面抓不到坪數，租屋同坪數比較會放寬。";
+  return `<section class="hmk-area-filter"><p><strong>比租屋坪數規則</strong></p><p class="hmk-muted">${escapeHtml(rule)}</p></section>`;
+};
+
 const marketBucketHtml = (bucket, mode) => {
   const hasData = bucket.count > 0;
   const slice = bucket.marketSlice || {};
@@ -455,7 +462,7 @@ const renderInPagePanel = async (statusText = "") => {
         <input class="hmk-auto-toggle" type="checkbox" ${data.autoAnalysisEnabled ? "checked" : ""}>
         <span class="hmk-slider" aria-hidden="true"></span>
       </label>
-      ${areaFilterHtml(data.options || {})}
+      ${panelMode === "rent" ? rentAreaRuleHtml(current.area) : areaFilterHtml(data.options || {})}
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
       ${pollStatusHtml(data.marketPollStatus)}

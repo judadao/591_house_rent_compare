@@ -158,6 +158,8 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   await flush();
   assert.equal(chrome.storage.panelMode, "rent");
   assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /租屋行情/);
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /±2 坪/);
+  assert.equal(dom.window.document.querySelector('[data-area-preset="20_30"]'), null);
 
   const action = dom.window.document.querySelector(".hmk-action");
   assert.ok(action);

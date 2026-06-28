@@ -50,6 +50,13 @@
     return { min: null, max: null, label: "權狀不限" };
   };
 
+  const rentCompareAreaRange = (base) => {
+    if (!Number.isFinite(base.area)) return { min: null, max: null, label: "租屋同坪數：目前物件坪數未知" };
+    const min = Math.max(0, Math.round((base.area - 2) * 10) / 10);
+    const max = Math.round((base.area + 2) * 10) / 10;
+    return { min, max, label: `租屋同坪數：${min}-${max}坪（目前坪數±2坪）` };
+  };
+
   const areaRangeMatch = (item, range) => {
     if (!range || (range.min === null && range.max === null)) return true;
     if (!Number.isFinite(item.area)) return false;
@@ -227,17 +234,9 @@
 
   const rentDistanceSummary = (base, items, options = {}) => {
     if (base.mode !== "rent") return [];
-    const areaRange = resolveAreaRange(base, options);
-    const rentAreaTolerance = Number(options.rentDistanceAreaTolerance ?? 0.15);
-    const rentMinAreaTolerancePing = Number(options.rentDistanceMinAreaTolerancePing ?? 3);
-    const areaCloseEnough = (item) => {
-      if (!Number.isFinite(base.area)) return true;
-      if (!Number.isFinite(item.area)) return false;
-      const maxDelta = Math.max(base.area * rentAreaTolerance, rentMinAreaTolerancePing);
-      return Math.abs(item.area - base.area) <= maxDelta;
-    };
+    const areaRange = rentCompareAreaRange(base);
     const pricedItems = items
-      .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange) && areaCloseEnough(item))
+      .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange))
       .filter((item) => Number.isFinite(primaryValue(item)));
     const baseRent = primaryValue(base);
     const build = (label, matcher) => {
@@ -335,7 +334,7 @@
 
   const analyzeBucket = (base, items, label, options = {}) => {
     const scopedItems = scopedMarketItems(base, items, options);
-    const areaRange = resolveAreaRange(base, options);
+    const areaRange = base.mode === "rent" ? rentCompareAreaRange(base) : resolveAreaRange(base, options);
     const areaScopedItems = scopedItems.filter((item) => areaRangeMatch(item, areaRange));
     const strictComparables = comparableRankedItems(
       base,
@@ -421,6 +420,7 @@
     primaryValue,
     autoAreaRange,
     resolveAreaRange,
+    rentCompareAreaRange,
     areaRangeMatch,
     isUsableMarketItem,
     distanceKm,

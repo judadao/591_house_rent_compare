@@ -86,6 +86,29 @@ test("summarizes rent prices by km ranges and same district", () => {
   assert.equal(Math.round(buckets["同行政區不限距離"].averagePrimary), 35000);
 });
 
+test("rent comparison ignores manual area filters and uses current area plus minus two ping", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "台北市",
+    district: "大安區",
+    area: 20,
+    monthlyRent: 32000,
+    latitude: 25.033,
+    longitude: 121.565
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "fit-low", area: 18, monthlyRent: 30000 },
+    { ...baseRent, id: "fit-high", area: 22, monthlyRent: 34000 },
+    { ...baseRent, id: "too-small", area: 17.9, monthlyRent: 20000 },
+    { ...baseRent, id: "too-large", area: 22.1, monthlyRent: 60000 }
+  ], { compareAreaPreset: "custom", compareAreaMin: 30 });
+
+  assert.equal(result.rent.areaRange.label, "租屋同坪數：18-22坪（目前坪數±2坪）");
+  assert.deepEqual(result.rent.comparables.map((item) => item.id), ["fit-low", "fit-high"]);
+  assert.equal(result.rent.medianPrimary, 32000);
+});
+
 test("can compare a sale listing against rental market", () => {
   const result = analyzer.analyzeMarket(baseSale, [
     {
