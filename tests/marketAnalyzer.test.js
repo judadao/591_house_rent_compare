@@ -110,7 +110,7 @@ test("rent comparison ignores manual area filters and uses current area plus min
   assert.equal(result.rent.areaRange.label, "估算坪數：18-22坪（目標20坪，-2/+2坪）");
   assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["fit-low", "fit-high"]);
   assert.deepEqual(result.rent.comparables.filter((item) => item.usedForEstimate).map((item) => item.id), ["fit-low", "fit-high"]);
-  assert.equal(result.rent.medianPrimary, 32000);
+  assert.equal(Math.round(result.rent.medianPrimary), 32121);
 });
 
 test("rent estimate badges follow current listing area plus minus two ping", () => {
@@ -197,10 +197,11 @@ test("rent diff ignores stale rentPerPing and recalculates unit rent from monthl
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, -17.2);
 });
 
-test("display diff shows absolute signed-delta percent without ratio conversion", () => {
-  assert.equal(Math.round(analyzer.displayDiffPercent(-98.8) * 10) / 10, 98.8);
+test("display diff converts ratio-like values to distance from 100 percent", () => {
+  assert.equal(Math.round(analyzer.displayDiffPercent(-98.8) * 10) / 10, 1.2);
   assert.equal(Math.round(analyzer.displayDiffPercent(-17.2) * 10) / 10, 17.2);
   assert.equal(Math.round(analyzer.displayDiffPercent(30.8) * 10) / 10, 30.8);
+  assert.equal(Math.round(analyzer.displayDiffPercent(119.4) * 10) / 10, 19.4);
 });
 
 test("rent diff uses current unit rent instead of monthly median direction", () => {
@@ -234,6 +235,32 @@ test("rent diff uses current unit rent instead of monthly median direction", () 
   assert.equal(Math.round(result.rent.medianPrimary), 26865);
   assert.equal(Math.round(result.rent.medianUnit), 1791);
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, 0.3);
+});
+
+test("rent estimate monthly median is normalized from unit median and current area", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "新北市",
+    district: "板橋區",
+    area: 15,
+    monthlyRent: 26959,
+    latitude: 25.017,
+    longitude: 121.476
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "small", area: 8.31, monthlyRent: 14887, latitude: 25.018, longitude: 121.476 },
+    { ...baseRent, id: "same", area: 15, monthlyRent: 26865, latitude: 25.019, longitude: 121.476 },
+    { ...baseRent, id: "large", area: 20, monthlyRent: 35820, latitude: 25.02, longitude: 121.476 }
+  ], {
+    rentAreaMinusPing: 10,
+    rentAreaPlusPing: 10,
+    rentEstimateRadiusKm: 3
+  });
+
+  assert.equal(Math.round(result.rent.medianUnit), 1791);
+  assert.equal(Math.round(result.rent.medianPrimary), 26865);
+  assert.notEqual(Math.round(result.rent.medianPrimary), 14887);
 });
 
 test("rent estimate includes same-radius listings even when parsed district differs", () => {
@@ -304,7 +331,7 @@ test("can compare a sale listing against rental market", () => {
   ], { analysisMode: "rent", rentAreaMinusPing: 2, rentAreaPlusPing: 2 });
 
   assert.equal(result.mode, "rent");
-  assert.equal(result.rent.medianPrimary, 42000);
+  assert.equal(result.rent.medianPrimary, 43750);
 });
 
 test("estimates mortgage monthly payment", () => {

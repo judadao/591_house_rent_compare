@@ -407,8 +407,14 @@
     const unitValues = pricedComparables.map(unitValue);
     const basePrimary = primaryValue(base);
     const baseUnit = unitValue(base);
-    const medianPrimary = median(primaryValues);
+    const rawMedianPrimary = median(primaryValues);
     const medianUnit = median(unitValues);
+    const rentEstimatedPrimary = base.mode === "rent" && Number.isFinite(base.area) && Number.isFinite(medianUnit)
+      ? medianUnit * base.area
+      : null;
+    const medianPrimary = rentEstimatedPrimary ?? rawMedianPrimary;
+    const p25Unit = percentile(unitValues, 0.25);
+    const p75Unit = percentile(unitValues, 0.75);
     const finalCompareValue = base.mode === "rent" ? baseUnit : baseUnit;
     const benchmark = medianUnit;
     const diffPercent = benchmark && finalCompareValue ? ((finalCompareValue - benchmark) / benchmark) * 100 : null;
@@ -422,10 +428,10 @@
       baseUnit,
       medianPrimary,
       medianUnit,
-      p25Primary: percentile(primaryValues, 0.25),
-      p75Primary: percentile(primaryValues, 0.75),
-      p25Unit: percentile(unitValues, 0.25),
-      p75Unit: percentile(unitValues, 0.75),
+      p25Primary: base.mode === "rent" && Number.isFinite(base.area) && Number.isFinite(p25Unit) ? p25Unit * base.area : percentile(primaryValues, 0.25),
+      p75Primary: base.mode === "rent" && Number.isFinite(base.area) && Number.isFinite(p75Unit) ? p75Unit * base.area : percentile(primaryValues, 0.75),
+      p25Unit,
+      p75Unit,
       diffPercent,
       comparableMode: "area-estimate",
       areaRange,
@@ -481,7 +487,10 @@
 
   const displayDiffPercent = (value) => {
     if (!Number.isFinite(value)) return null;
-    return Math.abs(value);
+    const absolute = Math.abs(value);
+    if (value < 0 && absolute > 50 && absolute < 100) return 100 - absolute;
+    if (value > 100 && value < 200) return value - 100;
+    return absolute;
   };
 
   const api = {
