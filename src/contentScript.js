@@ -330,8 +330,8 @@ const estimateAreaRuleHtml = (area, mode) => {
 };
 
 const rentEstimateControlsHtml = (current, options = {}) => {
-  const minus = options.rentAreaMinusPing ?? options.rentAreaTolerancePing ?? 0;
-  const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 0;
+  const minus = options.rentAreaMinusPing ?? options.rentAreaTolerancePing ?? 2;
+  const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 2;
   const radius = options.rentEstimateRadiusKm ?? 3;
   return `
     <section class="hmk-area-filter">
@@ -347,9 +347,9 @@ const rentEstimateControlsHtml = (current, options = {}) => {
       </div>
       <div class="hmk-slider-row">
         <label><span>地址距離</span><strong><span class="hmk-rent-radius-value">${escapeHtml(radius)}</span> km 內</strong></label>
-        <input class="hmk-rent-radius" type="range" min="0.5" max="10" step="0.5" value="${escapeHtml(radius)}">
+        <input class="hmk-rent-radius" type="range" min="0.5" max="20" step="0.5" value="${escapeHtml(radius)}">
       </div>
-      <p class="hmk-muted">預設用目前物件坪數、-0/+0 坪、地址距離 3km 內；貴幾 % 以每坪租金中位數計算。沒有座標的物件只列為參考。</p>
+      <p class="hmk-muted">預設用目前物件坪數、-2/+2 坪、地址距離 3km 內；貴幾 % 以每坪租金中位數計算。沒有座標的物件只列為參考。</p>
     </section>
   `;
 };

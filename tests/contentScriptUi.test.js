@@ -158,11 +158,12 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   await flush();
   assert.equal(chrome.storage.panelMode, "rent");
   assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /租金估算條件/);
-  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /-0\/\+0/);
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /-2\/\+2/);
   assert.equal(dom.window.document.querySelector('[data-area-preset="20_30"]'), null);
-  assert.equal(dom.window.document.querySelector(".hmk-rent-minus").value, "0");
-  assert.equal(dom.window.document.querySelector(".hmk-rent-plus").value, "0");
+  assert.equal(dom.window.document.querySelector(".hmk-rent-minus").value, "2");
+  assert.equal(dom.window.document.querySelector(".hmk-rent-plus").value, "2");
   assert.equal(dom.window.document.querySelector(".hmk-rent-radius").value, "3");
+  assert.equal(dom.window.document.querySelector(".hmk-rent-radius").max, "20");
   dom.window.document.querySelector(".hmk-rent-minus").value = "1";
   dom.window.document.querySelector(".hmk-rent-plus").value = "3";
   dom.window.document.querySelector(".hmk-rent-radius").value = "5";

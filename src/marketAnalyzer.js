@@ -78,7 +78,7 @@
 
   const rentAreaTolerancePing = (options = {}) => {
     const tolerance = Number(options.rentAreaTolerancePing);
-    return Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : 0;
+    return Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : 2;
   };
 
   const rentAreaMinusPing = (options = {}) => {
