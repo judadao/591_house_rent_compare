@@ -22,6 +22,15 @@
     return item.monthlyRent || item.price || null;
   };
 
+  const looksLikeSearchPage = (item) => {
+    const title = String(item?.title || "");
+    return /買房\s*[|｜]\s*中古屋買賣|中古屋買賣房屋出售|591售屋網$/.test(title) && !item.area && !primaryValue(item);
+  };
+
+  const isUsableMarketItem = (item) =>
+    !looksLikeSearchPage(item) &&
+    (Boolean(item.area) || Number.isFinite(primaryValue(item)) || Number.isFinite(unitValue(item)));
+
   const distanceKm = (a, b) => {
     if (!Number.isFinite(a.latitude) || !Number.isFinite(a.longitude) || !Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) {
       return null;
@@ -75,7 +84,7 @@
     const maxStationStops = Number(options.maxStationStops ?? 1);
     const minScopeCount = Number(options.minScopeCount ?? 12);
     const radiusKm = Number(options.radiusKm ?? 30);
-    const candidates = items.filter((item) => basicScopeMatch(base, item));
+    const candidates = items.filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item));
     const selected = new Map();
     const addMatches = (matcher) => {
       for (const item of candidates) {
@@ -314,6 +323,7 @@
     median,
     unitValue,
     primaryValue,
+    isUsableMarketItem,
     distanceKm,
     stationDistance,
     sameOrNearbyStation,

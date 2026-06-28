@@ -191,3 +191,23 @@ test("keeps scoped listings without price in the displayed comparable list", () 
   assert.equal(result.listing.pricedCount, 1);
   assert.ok(result.listing.comparables.some((item) => item.id === "unknown-price"));
 });
+
+test("filters empty 591 search pages out of market scope", () => {
+  const base = { ...baseSale, city: "新北市", district: "板橋區", area: 30 };
+  const result = analyzer.analyzeMarket(base, [
+    {
+      id: "search-page",
+      url: "https://sale.591.com.tw/?regionid=3&section=26",
+      mode: "sale",
+      marketKind: "listing",
+      city: "新北市",
+      district: "板橋區",
+      title: "新北市板橋區買屋｜中古屋買賣 - 591售屋網"
+    },
+    { ...base, id: "real-listing", area: 29, totalPrice: 1688, pricePerPing: 58.2, marketKind: "listing" }
+  ]);
+
+  assert.equal(result.listing.marketSlice.scopeCount, 1);
+  assert.equal(result.listing.comparables.length, 1);
+  assert.equal(result.listing.comparables[0].id, "real-listing");
+});

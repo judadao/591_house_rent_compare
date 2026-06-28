@@ -3,7 +3,7 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 2;
+const MARKET_DATA_VERSION = 3;
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
   new Promise((resolve, reject) => {
