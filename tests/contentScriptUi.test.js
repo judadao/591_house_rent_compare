@@ -234,6 +234,33 @@ test("rent panel displays current unit rent and a sane high diff", async () => {
   assert.doesNotMatch(text, /偏低 0\.9%/);
 });
 
+test("scrapes rent detail price from Product JSON-LD instead of header ad price", async () => {
+  const { dom, chrome } = await loadContentScript({
+    url: "https://rent.591.com.tw/21473245",
+    html: `<!doctype html><html><head>
+      <title>可租補台電洗脫烘洗衣機 - 591租屋網</title>
+      <script type="application/ld+json">[
+        {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"name":"可租補台電洗脫烘洗衣機 - 月租26,959元/月"}]},
+        {"@context":"https://schema.org","@type":"Product","name":"可租補台電洗脫烘洗衣機","description":"新北市板橋區整層住家出租","offers":{"@type":"Offer","price":"26959","priceCurrency":"TWD"}}
+      ]</script>
+      <meta name="description" content="新北市板橋區整層住家出租：租金?元/月，面積?坪，位於五權街30巷">
+    </head><body>
+      <nav><div class="detail-content">仲介用戶購買售屋套餐，單筆最低至240元！</div></nav>
+      <h1>可租補台電洗脫烘洗衣機</h1>
+      <main>新北市板橋區五權街30巷 整層住家 2房1廳1衛 15坪 租金 26,959 元/月 距亞東醫院站1302公尺</main>
+    </body></html>`
+  });
+
+  const response = chrome.api.__dispatch({ type: "SCRAPE_CURRENT" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.listing.id, "21473245");
+  assert.equal(response.listing.monthlyRent, 26959);
+  assert.equal(response.listing.price, 26959);
+  assert.equal(response.listing.area, 15);
+  assert.equal(Math.round(response.listing.rentPerPing), 1797);
+});
+
 test("empty market sections still keep a single analyze button", async () => {
   const { dom, chrome } = await loadContentScript();
   chrome.storage.listings = [];

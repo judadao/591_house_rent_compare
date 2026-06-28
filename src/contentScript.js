@@ -29,7 +29,11 @@ const getJsonLd = () => {
   for (const node of nodes) {
     try {
       const parsed = JSON.parse(node.textContent);
-      const data = Array.isArray(parsed) ? parsed[0] : parsed;
+      const records = Array.isArray(parsed) ? parsed : [parsed];
+      const data =
+        records.find((item) => item && typeof item === "object" && item.offers?.price) ||
+        records.find((item) => item && typeof item === "object" && item["@type"] === "Product") ||
+        records.find((item) => item && typeof item === "object");
       if (data && typeof data === "object") return data;
     } catch {
       continue;
@@ -69,10 +73,12 @@ const scrapeCurrentListing = () => {
     parser.numberFrom(document.querySelector('[itemprop="longitude"]')?.content) ||
     parser.numberFrom(getMeta("place:location:longitude")) ||
     nuxtCoordinates.longitude;
-  const price =
-    parser.numberFrom(text(document.querySelector('[class*="price"], [class*="Price"]'))) ||
-    parser.numberFrom(jsonLd.offers?.price) ||
-    parser.numberFrom(bodyText.match(/([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]);
+  const jsonLdPrice = parser.numberFrom(jsonLd.offers?.price);
+  const labeledRent =
+    parser.numberFrom(bodyText.match(/(?:月租|租金)[^\d]{0,30}([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]) ||
+    parser.numberFrom(bodyText.match(/([\d,]+)\s*(?:元\/月|\/月)/)?.[1]);
+  const domPrice = parser.numberFrom(text(document.querySelector('[class*="price"], [class*="Price"]')));
+  const price = jsonLdPrice || labeledRent || domPrice;
 
   return parser.normalizeListing(
     {

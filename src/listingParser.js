@@ -141,6 +141,14 @@
     };
   };
 
+  const parseMonthlyRent = (sourceText) => {
+    const raw = String(sourceText || "");
+    return (
+      numberFrom(raw.match(/(?:租金|月租)[^\d]{0,30}([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]) ||
+      numberFrom(raw.match(/([\d,]+)\s*元\/月/)?.[1])
+    );
+  };
+
   const parseFeatureFlags = (sourceText) => {
     const raw = String(sourceText || "");
     return {
@@ -166,7 +174,10 @@
       partial.mainAreaPing ??
       parseMainArea(raw) ??
       (area && publicFacilityRatio !== null ? Math.round(area * (1 - publicFacilityRatio) * 10) / 10 : null);
-    const monthlyRent = partial.monthlyRent || (mode === "rent" ? numberFrom(raw.match(/([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]) : null);
+    const monthlyRent =
+      partial.monthlyRent ||
+      (mode === "rent" && partial.price && partial.price >= 1000 ? partial.price : null) ||
+      (mode === "rent" ? parseMonthlyRent(raw) : null);
     const totalPrice = partial.totalPrice || (mode === "sale" ? numberFrom(raw.match(/([\d,]+(?:\.\d+)?)\s*萬/)?.[1]) : null);
     const pricePerPing =
       partial.pricePerPing ||
@@ -175,7 +186,7 @@
     const rentPerPing =
       partial.rentPerPing ||
       (mode === "rent" && monthlyRent && area ? monthlyRent / area : null);
-    const price = partial.price || monthlyRent || totalPrice;
+    const price = mode === "rent" ? (monthlyRent || partial.price || null) : (partial.price || totalPrice);
     const url = partial.url || fallbackUrl;
     const latitude = partial.latitude ?? partial.lat ?? null;
     const longitude = partial.longitude ?? partial.lng ?? null;
