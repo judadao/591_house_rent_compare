@@ -245,7 +245,7 @@ const shouldAutoAnalyze = (current, data, report, mode) => {
   return modeItems.length < MIN_AUTO_SCOPE_COUNT || reportScopeCount(report, mode) < MIN_AUTO_SCOPE_COUNT;
 };
 
-const requestNearbyAnalysis = async (listing, mode, { force = false, reset = false } = {}) => {
+const requestNearbyAnalysis = async (listing, mode, { force = false, reset = false, sourceLimit = null } = {}) => {
   const key = analysisKey(listing, mode);
   const cooldownMs = 6 * 60 * 60 * 1000;
   const stored = await chrome.storage.local.get({ analysisTimestamps: {} });
@@ -257,7 +257,8 @@ const requestNearbyAnalysis = async (listing, mode, { force = false, reset = fal
   const response = await chrome.runtime.sendMessage({
     type: reset ? "RESET_AND_ANALYZE" : "ANALYZE_NEARBY",
     listing,
-    analysisMode: listing.mode === "sale" ? mode : ""
+    analysisMode: listing.mode === "sale" ? mode : "",
+    sourceLimit
   });
   if (response?.ok) {
     const nextStorage = {
@@ -501,7 +502,7 @@ const renderInPagePanel = async (statusText = "") => {
     panel.querySelector(".hmk-status").textContent = shouldResetLocalData(data)
       ? "正在自動重建本機行情資料..."
       : "正在自動分析附近行情...";
-    requestNearbyAnalysis(current, panelMode, { force: true, reset: shouldResetLocalData(data) })
+    requestNearbyAnalysis(current, panelMode, { force: true, reset: shouldResetLocalData(data), sourceLimit: 1 })
       .then((response) => {
         autoRefreshInFlight.delete(autoKey);
         if (response?.ok) {

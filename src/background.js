@@ -4,6 +4,7 @@ const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
 const MARKET_DATA_VERSION = 6;
+const analysisInFlight = new Set();
 const REGION_SECTION_IDS = {
   "新北市|板橋區": { regionid: 3, section: 26 }
 };
@@ -158,25 +159,34 @@ const scrapeSearchSources = async (sources, base, mode) => {
   }
 };
 
-const analyzeNearby = async (listing, requestedMode = "") => {
-  await upsertItems([listing]);
-  await addToWatchlist(listing, requestedMode);
-  let scraped = [];
-  const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
-  for (const mode of modes) {
-    const sourceLimit = mode === "rent" ? 4 : 6;
-    const sources = marketSearchUrls(listing, mode).slice(0, sourceLimit);
-    try {
-      scraped = scraped.concat(await scrapeSearchSources(sources, listing, mode));
-    } catch {
-      continue;
-    }
+const analyzeNearby = async (listing, requestedMode = "", options = {}) => {
+  const lockKey = polling.watchKey(listing, requestedMode || listing.mode || "");
+  if (analysisInFlight.has(lockKey)) {
+    return { scraped: 0, added: 0, total: (await storageGetItems()).length, skipped: true };
   }
-  const result = await upsertItems(scraped);
-  return { scraped: scraped.length, added: result.added, total: result.total };
+  analysisInFlight.add(lockKey);
+  try {
+    await upsertItems([listing]);
+    if (options.track !== false) await addToWatchlist(listing, requestedMode);
+    let scraped = [];
+    const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
+    for (const mode of modes) {
+      const sourceLimit = options.sourceLimit || (mode === "rent" ? 4 : 6);
+      const sources = marketSearchUrls(listing, mode).slice(0, sourceLimit);
+      try {
+        scraped = scraped.concat(await scrapeSearchSources(sources, listing, mode));
+      } catch {
+        continue;
+      }
+    }
+    const result = await upsertItems(scraped);
+    return { scraped: scraped.length, added: result.added, total: result.total };
+  } finally {
+    analysisInFlight.delete(lockKey);
+  }
 };
 
-const resetAndAnalyzeNearby = async (listing, requestedMode = "") => {
+const resetAndAnalyzeNearby = async (listing, requestedMode = "", options = {}) => {
   await chrome.storage.local.set({
     listings: [],
     analysisTimestamps: {},
@@ -185,7 +195,7 @@ const resetAndAnalyzeNearby = async (listing, requestedMode = "") => {
     [polling.WATCHLIST_KEY]: [],
     [polling.POLL_STATE_KEY]: {}
   });
-  return analyzeNearby(listing, requestedMode);
+  return analyzeNearby(listing, requestedMode, options);
 };
 
 const pollWatchlist = async () => {
@@ -207,7 +217,7 @@ const pollWatchlist = async () => {
 
   const watchlist = data[polling.WATCHLIST_KEY] || [];
   let pollState = data[polling.POLL_STATE_KEY] || {};
-  const due = polling.dueWatches(watchlist, pollState);
+  const due = polling.dueWatches(watchlist, pollState).slice(0, 1);
   if (!due.length) {
     await chrome.storage.local.set({
       [polling.POLL_STATUS_KEY]: {
@@ -230,7 +240,7 @@ const pollWatchlist = async () => {
   let added = 0;
   for (const watch of due) {
     try {
-      const result = await analyzeNearby(watch.listing, watch.analysisMode);
+      const result = await analyzeNearby(watch.listing, watch.analysisMode, { track: false, sourceLimit: 1 });
       scraped += result.scraped || 0;
       added += result.added || 0;
     } finally {
@@ -251,14 +261,14 @@ const pollWatchlist = async () => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "ANALYZE_NEARBY") {
-    analyzeNearby(message.listing, message.analysisMode)
+    analyzeNearby(message.listing, message.analysisMode, { sourceLimit: message.sourceLimit || null })
       .then((result) => sendResponse({ ok: true, ...result }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
   if (message?.type === "RESET_AND_ANALYZE") {
-    resetAndAnalyzeNearby(message.listing, message.analysisMode)
+    resetAndAnalyzeNearby(message.listing, message.analysisMode, { sourceLimit: message.sourceLimit || null })
       .then((result) => sendResponse({ ok: true, reset: true, ...result }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
