@@ -13,6 +13,8 @@ const state = {
   options: { ...DEFAULT_OPTIONS }
 };
 
+const parser = globalThis.RentCompareParser;
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -86,6 +88,37 @@ const sendToActiveTab = async (type) => {
     });
     return chrome.tabs.sendMessage(tab.id, { type });
   }
+};
+
+const waitForTabComplete = (tabId, timeoutMs = 12000) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      reject(new Error("搜尋頁載入逾時"));
+    }, timeoutMs);
+
+    const listener = (updatedTabId, changeInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === "complete") {
+        clearTimeout(timer);
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+
+const scrapeTab = async (tabId, type) => {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["src/listingParser.js", "src/contentScript.js"]
+  });
+  return chrome.tabs.sendMessage(tabId, { type });
+};
+
+const marketSearchUrl = () => {
+  if (!state.current) return "";
+  return parser.buildMarketSearchUrl(state.current);
 };
 
 const renderFacts = () => {
@@ -234,6 +267,46 @@ const collectList = async () => {
   }
 };
 
+const autoMarketSearch = async () => {
+  try {
+    if (!state.current) await refreshCurrent();
+    if (!state.current) return;
+
+    const url = marketSearchUrl();
+    if (!url) throw new Error("目前物件缺少區域條件，無法組搜尋頁");
+
+    setStatus("正在自動搜尋同區行情...");
+    await upsertListings([state.current]);
+
+    const tab = await chrome.tabs.create({ url, active: false });
+    try {
+      await waitForTabComplete(tab.id);
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      const response = await scrapeTab(tab.id, "SCRAPE_LIST");
+      const listings = response?.listings || [];
+      const added = await upsertListings(listings);
+      setStatus(`已自動搜尋同區行情：收集 ${listings.length} 筆，新增 ${added} 筆。`);
+    } finally {
+      if (tab.id) await chrome.tabs.remove(tab.id);
+    }
+  } catch (error) {
+    setStatus(`自動搜尋失敗：${error.message}`, true);
+  }
+};
+
+const openMarketSearch = async () => {
+  try {
+    if (!state.current) await refreshCurrent();
+    if (!state.current) return;
+    const url = marketSearchUrl();
+    if (!url) throw new Error("目前物件缺少區域條件，無法組搜尋頁");
+    await chrome.tabs.create({ url, active: true });
+    setStatus("已開啟 591 同區行情搜尋頁。");
+  } catch (error) {
+    setStatus(`開啟失敗：${error.message}`, true);
+  }
+};
+
 const saveCurrent = async () => {
   if (!state.current) await refreshCurrent();
   if (!state.current) return;
@@ -287,6 +360,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   $("#refresh").addEventListener("click", refreshCurrent);
   $("#saveCurrent").addEventListener("click", saveCurrent);
+  $("#autoMarketSearch").addEventListener("click", autoMarketSearch);
+  $("#openMarketSearch").addEventListener("click", openMarketSearch);
   $("#collectList").addEventListener("click", collectList);
   $("#clearStore").addEventListener("click", clearStore);
   $("#exportCsv").addEventListener("click", exportCsv);

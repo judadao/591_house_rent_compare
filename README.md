@@ -12,13 +12,14 @@ Chrome extension for collecting 591 rental listings while browsing and comparing
 ## Usage
 
 1. Open a 591 rental listing page and click the extension icon.
-2. Click **儲存目前物件** to save the current listing.
-3. Open a 591 search result page and click **收集本頁列表**.
-4. Return to a listing page to see same-area, same-type, similar-size rent comparisons.
-5. Adjust **比較條件** when you want looser or stricter matches.
-6. Click **匯出 CSV** to export the local dataset for spreadsheet analysis.
+2. Click **搜尋同區行情** to automatically open a background 591 search, collect comparable listings, and update the comparison.
+3. Click **開啟搜尋頁** if you want to inspect the same search results yourself.
+4. Click **儲存物件** to save the current listing without searching.
+5. Open a 591 search result page and click **收集本頁列表** when you want to manually add more comparables.
+6. Adjust **比較條件** when you want looser or stricter matches.
+7. Click **匯出 CSV** to export the local dataset for spreadsheet analysis.
 
-The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run background crawling.
+The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. Automatic search only opens a normal 591 search result tab for the current listing conditions, collects visible results, then closes that tab.
 
 ## Development
 

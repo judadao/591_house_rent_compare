@@ -42,3 +42,16 @@ test("normalizes a full listing record", () => {
   assert.equal(listing.allowsPet, false);
   assert.equal(listing.hasParking, true);
 });
+
+test("builds market search url from current listing conditions", () => {
+  const url = parser.buildMarketSearchUrl({
+    city: "台北市",
+    district: "信義區",
+    type: "整層住家",
+    rooms: 2
+  });
+  const parsed = new URL(url);
+
+  assert.equal(parsed.origin, "https://rent.591.com.tw");
+  assert.equal(parsed.searchParams.get("keywords"), "台北市 信義區 整層住家 2房");
+});

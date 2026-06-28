@@ -108,6 +108,23 @@
     };
   };
 
+  const buildMarketSearchKeywords = (listing) =>
+    [
+      listing.city,
+      listing.district,
+      listing.type,
+      listing.rooms ? `${listing.rooms}房` : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  const buildMarketSearchUrl = (listing) => {
+    const keywords = buildMarketSearchKeywords(listing);
+    const url = new URL("https://rent.591.com.tw/");
+    if (keywords) url.searchParams.set("keywords", keywords);
+    return url.toString();
+  };
+
   const api = {
     numberFrom,
     listingIdFromUrl,
@@ -116,7 +133,9 @@
     inferType,
     parseFloor,
     parseFeatureFlags,
-    normalizeListing
+    normalizeListing,
+    buildMarketSearchKeywords,
+    buildMarketSearchUrl
   };
 
   globalScope.RentCompareParser = api;

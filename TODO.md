@@ -12,6 +12,8 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - [x] Add configurable comparison options for area range, district, rent type, and room count.
 - [x] Add data quality hints for missing price, area, region, type, or room count.
 - [x] Add CSV export for collected local listings.
+- [x] Add a one-click same-area market search button.
+- [x] Add a manual button to open the generated 591 market search page.
 - [x] Add Node-based parser tests and syntax checks.
 
 ## Testing Direction
@@ -19,6 +21,7 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - Parser unit tests cover core text extraction without needing Chrome or 591 live pages.
 - Popup and content scripts receive syntax checks with `node --check`.
 - Manual browser testing should cover a 591 detail page, a 591 search results page, and a non-591 page error state.
+- Manual browser testing should verify **搜尋同區行情** opens a background result tab, collects visible listings, closes the tab, and refreshes comparison results.
 - Future integration tests should use saved HTML fixtures from 591 pages to catch markup changes.
 
 ## Later Improvements

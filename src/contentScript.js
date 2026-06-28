@@ -1,4 +1,7 @@
 (function initContentScript() {
+if (globalThis.__rentCompareContentScriptLoaded) return;
+globalThis.__rentCompareContentScriptLoaded = true;
+
 const parser = globalThis.RentCompareParser;
 
 const text = (node) => (node ? node.textContent.replace(/\s+/g, " ").trim() : "");

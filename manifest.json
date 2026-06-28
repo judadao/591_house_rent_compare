@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "591 Rent Compare",
   "description": "Collect 591 rental listings while browsing and compare similar homes in the same area.",
-  "version": "0.2.0",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "version": "0.3.0",
+  "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": ["*://*.591.com.tw/*", "*://591.com.tw/*"],
   "action": {
     "default_title": "591 Rent Compare",
