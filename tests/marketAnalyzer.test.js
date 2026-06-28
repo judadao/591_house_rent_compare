@@ -110,6 +110,29 @@ test("rent comparison ignores manual area filters and uses current area plus min
   assert.equal(result.rent.medianPrimary, 32000);
 });
 
+test("rent estimate badges follow current listing area plus minus two ping", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "新北市",
+    district: "板橋區",
+    area: 19,
+    monthlyRent: 30000
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "area-17", area: 17, monthlyRent: 28000 },
+    { ...baseRent, id: "area-19", area: 19, monthlyRent: 30000 },
+    { ...baseRent, id: "area-21", area: 21, monthlyRent: 32000 },
+    { ...baseRent, id: "area-16-9", area: 16.9, monthlyRent: 26000 },
+    { ...baseRent, id: "area-21-1", area: 21.1, monthlyRent: 34000 }
+  ]);
+
+  assert.equal(result.rent.areaRange.label, "估算坪數：17-21坪（目前坪數±2坪）");
+  assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["area-19", "area-17", "area-21"]);
+  assert.deepEqual(result.rent.comparables.filter((item) => item.usedForEstimate).map((item) => item.id), ["area-19", "area-17", "area-21"]);
+  assert.deepEqual(result.rent.comparables.filter((item) => !item.usedForEstimate).map((item) => item.id), ["area-16-9", "area-21-1"]);
+});
+
 test("can compare a sale listing against rental market", () => {
   const result = analyzer.analyzeMarket(baseSale, [
     {
@@ -270,6 +293,24 @@ test("filters empty 591 search pages out of market scope", () => {
   assert.equal(result.listing.marketSlice.scopeCount, 1);
   assert.equal(result.listing.comparables.length, 1);
   assert.equal(result.listing.comparables[0].id, "real-listing");
+
+  const rentBase = { mode: "rent", city: "新北市", district: "板橋區", area: 19, monthlyRent: 30000 };
+  const rentResult = analyzer.analyzeMarket(rentBase, [
+    {
+      id: "rent-search-page",
+      url: "https://rent.591.com.tw/list?region=3&section=26",
+      mode: "rent",
+      marketKind: "listing",
+      city: "新北市",
+      district: "板橋區",
+      title: "板橋區租屋 | 新北市房屋出租 - 591租屋網"
+    },
+    { ...rentBase, id: "real-rent", marketKind: "listing", area: 19, monthlyRent: 30000 }
+  ]);
+
+  assert.equal(rentResult.rent.scopeCount, 1);
+  assert.deepEqual(rentResult.rent.comparables.map((item) => item.id), ["real-rent"]);
+  assert.equal(rentResult.rent.comparables[0].usedForEstimate, true);
 });
 
 test("estimates use current area plus minus two and ignore manual area filters", () => {

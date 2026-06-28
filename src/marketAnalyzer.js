@@ -67,7 +67,10 @@
 
   const looksLikeSearchPage = (item) => {
     const title = String(item?.title || "");
-    return /買房\s*[|｜]\s*中古屋買賣|中古屋買賣房屋出售|591售屋網$/.test(title) && !item.area && !primaryValue(item);
+    const url = String(item?.url || "");
+    const categoryUrl = /(?:sale|rent)\.591\.com\.tw\/(?:list)?\?/.test(url);
+    const categoryTitle = /買房\s*[|｜]\s*中古屋買賣|中古屋買賣房屋出售|591售屋網$|租屋\s*[|｜]|房屋出租\s*-\s*591租屋網|591租屋網$/.test(title);
+    return (categoryUrl || categoryTitle) && !item.area && !primaryValue(item);
   };
 
   const isUsableMarketItem = (item) =>

@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 6;
+const MARKET_DATA_VERSION = 7;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
