@@ -211,3 +211,21 @@ test("filters empty 591 search pages out of market scope", () => {
   assert.equal(result.listing.comparables.length, 1);
   assert.equal(result.listing.comparables[0].id, "real-listing");
 });
+
+test("area range is unrestricted by default and supports one-sided custom filters", () => {
+  const base = { ...baseSale, area: 30 };
+  const items = [
+    { ...base, id: "small", area: 18, totalPrice: 1200, pricePerPing: 66.7, marketKind: "listing" },
+    { ...base, id: "fit", area: 25, totalPrice: 1500, pricePerPing: 60, marketKind: "listing" },
+    { ...base, id: "large", area: 45, totalPrice: 2500, pricePerPing: 55.6, marketKind: "listing" }
+  ];
+
+  const unrestricted = analyzer.analyzeMarket(base, items);
+  const maxOnly = analyzer.analyzeMarket(base, items, { compareAreaPreset: "custom", compareAreaMax: 30 });
+  const minOnly = analyzer.analyzeMarket(base, items, { compareAreaPreset: "custom", compareAreaMin: 30 });
+
+  assert.equal(unrestricted.listing.count, 3);
+  assert.equal(unrestricted.listing.areaRange.label, "權狀不限");
+  assert.deepEqual(maxOnly.listing.comparables.map((item) => item.id), ["fit", "small"]);
+  assert.deepEqual(minOnly.listing.comparables.map((item) => item.id), ["large"]);
+});

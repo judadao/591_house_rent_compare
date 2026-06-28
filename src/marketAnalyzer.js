@@ -22,6 +22,36 @@
     return item.monthlyRent || item.price || null;
   };
 
+  const autoAreaRange = (area) => {
+    if (!Number.isFinite(area)) return { min: null, max: null, label: "權狀不限" };
+    if (area < 20) return { min: null, max: 20, label: "權狀20坪以下" };
+    if (area < 30) return { min: 20, max: 30, label: "權狀20-30坪" };
+    if (area < 40) return { min: 30, max: 40, label: "權狀30-40坪" };
+    return { min: 40, max: null, label: "權狀40坪以上" };
+  };
+
+  const resolveAreaRange = (base, options = {}) => {
+    if (options.compareAreaPreset === "all") return { min: null, max: null, label: "權狀不限" };
+    const min = Number.isFinite(Number(options.compareAreaMin)) ? Number(options.compareAreaMin) : null;
+    const max = Number.isFinite(Number(options.compareAreaMax)) ? Number(options.compareAreaMax) : null;
+    if (min !== null || max !== null) {
+      return {
+        min,
+        max,
+        label: min !== null && max !== null ? `權狀${min}-${max}坪` : min !== null ? `權狀${min}坪以上` : `權狀${max}坪以下`
+      };
+    }
+    return { min: null, max: null, label: "權狀不限" };
+  };
+
+  const areaRangeMatch = (item, range) => {
+    if (!range || (range.min === null && range.max === null)) return true;
+    if (!Number.isFinite(item.area)) return false;
+    if (range.min !== null && item.area < range.min) return false;
+    if (range.max !== null && item.area > range.max) return false;
+    return true;
+  };
+
   const looksLikeSearchPage = (item) => {
     const title = String(item?.title || "");
     return /買房\s*[|｜]\s*中古屋買賣|中古屋買賣房屋出售|591售屋網$/.test(title) && !item.area && !primaryValue(item);
@@ -246,13 +276,15 @@
 
   const analyzeBucket = (base, items, label, options = {}) => {
     const scopedItems = scopedMarketItems(base, items, options);
+    const areaRange = resolveAreaRange(base, options);
+    const areaScopedItems = scopedItems.filter((item) => areaRangeMatch(item, areaRange));
     const strictComparables = comparableRankedItems(
       base,
-      scopedItems.filter((item) => isComparable(base, item, options))
+      areaScopedItems.filter((item) => isComparable(base, item, { ...options, areaTolerance: 999 }))
     );
     const minComparableCount = Number(options.minComparableCount ?? 5);
     const comparableMode = strictComparables.length >= minComparableCount ? "strict" : "scope";
-    const comparables = (comparableMode === "strict" ? strictComparables : comparableRankedItems(base, scopedItems)).slice(0, 20);
+    const comparables = (comparableMode === "strict" ? strictComparables : comparableRankedItems(base, areaScopedItems)).slice(0, 20);
     const pricedComparables = comparables.filter((item) => Number.isFinite(primaryValue(item)));
 
     const primaryValues = pricedComparables.map(primaryValue);
@@ -278,6 +310,9 @@
       p75Unit: percentile(unitValues, 0.75),
       diffPercent,
       comparableMode,
+      areaRange,
+      scopeCount: scopedItems.length,
+      areaScopeCount: areaScopedItems.length,
       comparables,
       marketSlice: sliceMarket(base, items, options)
     };
@@ -323,6 +358,9 @@
     median,
     unitValue,
     primaryValue,
+    autoAreaRange,
+    resolveAreaRange,
+    areaRangeMatch,
     isUsableMarketItem,
     distanceKm,
     stationDistance,

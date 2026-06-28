@@ -227,3 +227,19 @@ test("auto analysis slider disables automatic requests", async () => {
   assert.ok(toggle);
   assert.equal(toggle.checked, false);
 });
+
+test("area preset buttons update comparison options", async () => {
+  const { dom, chrome } = await loadContentScript();
+  chrome.storage.analysisTimestamps = { "analysis:123:sale": Date.now() };
+
+  chrome.api.__dispatch({ type: "TOGGLE_PANEL" });
+  await flush();
+  const preset = dom.window.document.querySelector('[data-area-preset="20_30"]');
+  assert.ok(preset);
+  preset.click();
+  await flush();
+
+  assert.equal(chrome.storage.options.compareAreaPreset, "20_30");
+  assert.equal(chrome.storage.options.compareAreaMin, "20");
+  assert.equal(chrome.storage.options.compareAreaMax, "30");
+});

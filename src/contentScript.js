@@ -146,7 +146,15 @@ const panelStyles = `
   #hmk-panel .hmk-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
   #hmk-panel .hmk-switch button{background:#e2e8f0;color:#334155}
   #hmk-panel .hmk-switch button.active{background:#236f68;color:#fff}
+  #hmk-panel .hmk-area-filter{margin:8px 0;padding:8px;border-radius:6px;background:#f8fafc}
+  #hmk-panel .hmk-area-filter p{margin:0 0 6px}
+  #hmk-panel .hmk-area-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px}
+  #hmk-panel .hmk-area-presets button{background:#e2e8f0;color:#334155;padding:6px 5px}
+  #hmk-panel .hmk-area-presets button.active{background:#236f68;color:#fff}
+  #hmk-panel .hmk-area-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  #hmk-panel .hmk-area-inputs input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;color:#1f2933}
   #hmk-panel .hmk-muted{color:#64748b}
+  #hmk-panel .hmk-warning{margin-top:6px;color:#b45309}
   #hmk-panel .hmk-poll{margin:8px 0;padding:7px 8px;border-radius:6px;background:#fef3c7;color:#78350f}
   #hmk-panel .hmk-poll.idle,#hmk-panel .hmk-poll.done,#hmk-panel .hmk-poll.skipped{background:#f1f5f9;color:#475569}
   #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
@@ -207,12 +215,44 @@ const requestNearbyAnalysis = async (listing, mode, { force = false, reset = fal
   return response;
 };
 
+const areaPresets = [
+  { key: "all", label: "不限", min: "", max: "" },
+  { key: "under20", label: "20↓", min: "", max: "20" },
+  { key: "20_30", label: "20-30", min: "20", max: "30" },
+  { key: "30_40", label: "30-40", min: "30", max: "40" },
+  { key: "over40", label: "40↑", min: "40", max: "" }
+];
+
+const areaFilterHtml = (options = {}) => {
+  const preset = options.compareAreaPreset || "all";
+  const min = options.compareAreaMin ?? "";
+  const max = options.compareAreaMax ?? "";
+  return `
+    <section class="hmk-area-filter">
+      <p><strong>比價權狀坪數</strong></p>
+      <div class="hmk-area-presets">
+        ${areaPresets.map((item) => `<button data-area-preset="${escapeHtml(item.key)}" class="${preset === item.key ? "active" : ""}">${escapeHtml(item.label)}</button>`).join("")}
+      </div>
+      <div class="hmk-area-inputs">
+        <input class="hmk-area-min" type="number" min="0" step="0.1" placeholder="最小坪" value="${escapeHtml(min)}">
+        <input class="hmk-area-max" type="number" min="0" step="0.1" placeholder="最大坪" value="${escapeHtml(max)}">
+      </div>
+    </section>
+  `;
+};
+
 const marketBucketHtml = (bucket, mode) => {
   const hasData = bucket.count > 0;
   const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
   const pricedCount = bucket.pricedCount ?? bucket.count;
+  const areaRangeLabel = bucket.areaRange?.label || "權狀不限";
+  const sampleWarning = pricedCount < 5
+    ? `<p class="hmk-warning">樣本不足：可估價少於 5 筆，只能當粗略參考。</p>`
+    : pricedCount < 12
+      ? `<p class="hmk-warning">樣本偏少：建議至少 12 筆可估價物件，可信度較高。</p>`
+      : "";
   const diff =
     bucket.diffPercent === null
       ? ""
@@ -224,10 +264,10 @@ const marketBucketHtml = (bucket, mode) => {
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
       <p>找到 <strong>${escapeHtml(bucket.count)}</strong> 個範圍物件。</p>
-      <p class="hmk-muted">範圍優先用鄰近捷運站；資料太少時自動放寬到區塊、行政區與 30km 內座標。</p>
+      <p class="hmk-muted">地點範圍：優先鄰近捷運站；資料太少時放寬到區塊、行政區與 30km 內座標。權狀條件：${escapeHtml(areaRangeLabel)}。</p>
       ${
         hasData
-          ? `<p>其中 <strong>${escapeHtml(pricedCount)}</strong> 個有價格可計算：中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p><p class="hmk-muted">下方依權狀坪數接近度排序，再看距離。</p>`
+          ? `<p>其中 <strong>${escapeHtml(pricedCount)}</strong> 個有價格可計算：中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方依權狀坪數接近度排序，再看距離。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${marketSliceHtml(slice, mode)}
@@ -339,6 +379,7 @@ const renderInPagePanel = async (statusText = "") => {
         <input class="hmk-auto-toggle" type="checkbox" ${data.autoAnalysisEnabled ? "checked" : ""}>
         <span class="hmk-slider" aria-hidden="true"></span>
       </label>
+      ${areaFilterHtml(data.options || {})}
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
       ${pollStatusHtml(data.marketPollStatus)}
@@ -359,6 +400,33 @@ const renderInPagePanel = async (statusText = "") => {
     await chrome.storage.local.set({ autoAnalysisEnabled: event.target.checked });
     await renderInPagePanel(event.target.checked ? "已開啟自動分析。" : "已關閉自動分析。");
   });
+  panel.querySelectorAll("[data-area-preset]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const preset = areaPresets.find((item) => item.key === button.dataset.areaPreset) || areaPresets[0];
+      const nextOptions = {
+        ...(data.options || {}),
+        compareAreaPreset: preset.key,
+        compareAreaMin: preset.min,
+        compareAreaMax: preset.max
+      };
+      await chrome.storage.local.set({ options: nextOptions });
+      await renderInPagePanel(`已套用${preset.label === "不限" ? "權狀不限" : `權狀${preset.label}坪`}。`);
+    });
+  });
+  const applyCustomAreaFilter = async () => {
+    const min = panel.querySelector(".hmk-area-min")?.value || "";
+    const max = panel.querySelector(".hmk-area-max")?.value || "";
+    const nextOptions = {
+      ...(data.options || {}),
+      compareAreaPreset: "custom",
+      compareAreaMin: min,
+      compareAreaMax: max
+    };
+    await chrome.storage.local.set({ options: nextOptions });
+    await renderInPagePanel("已套用自訂權狀坪數。");
+  };
+  panel.querySelector(".hmk-area-min")?.addEventListener("change", applyCustomAreaFilter);
+  panel.querySelector(".hmk-area-max")?.addEventListener("change", applyCustomAreaFilter);
   panel.querySelectorAll(".hmk-action").forEach((button) => {
     button.addEventListener("click", async () => {
       panel.querySelectorAll(".hmk-action").forEach((actionButton) => {
