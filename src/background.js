@@ -3,7 +3,10 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 4;
+const MARKET_DATA_VERSION = 5;
+const REGION_SECTION_IDS = {
+  "新北市|板橋區": { regionid: 3, section: 26 }
+};
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
   new Promise((resolve, reject) => {
@@ -79,6 +82,15 @@ const marketSearchUrls = (base, analysisMode = base.mode) => {
   const keywordGroups = parser.buildRegionalSearchKeywords(searchBase);
   const urls = [];
   const add = (label, url, marketKind = "listing") => urls.push({ label, url, marketKind });
+  const regionSection = REGION_SECTION_IDS[`${searchBase.city}|${searchBase.district}`];
+
+  if (regionSection) {
+    const structured = new URL(searchBase.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/");
+    structured.searchParams.set("regionid", regionSection.regionid);
+    structured.searchParams.set("section", regionSection.section);
+    structured.searchParams.set("shType", "list");
+    add(`591 ${searchBase.mode === "sale" ? "買房" : "租屋"} ${searchBase.city}${searchBase.district}`, structured.toString(), "listing");
+  }
 
   for (const keywords of keywordGroups) {
     if (searchBase.mode === "sale") {
@@ -120,9 +132,13 @@ const scrapeSearchTab = async (source, base, mode) => {
   const tab = await chrome.tabs.create({ url: source.url, active: false });
   try {
     await waitForTabComplete(tab.id);
-    await new Promise((resolve) => setTimeout(resolve, 1800));
     await injectContentScripts(tab.id);
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_LIST" });
+    let response = { listings: [] };
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1800 : 1000));
+      response = await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_LIST" });
+      if ((response?.listings || []).length >= 5) break;
+    }
     return (response?.listings || []).map((item) => enrichWithSearchContext(item, base, mode, source));
   } finally {
     if (tab.id) await chrome.tabs.remove(tab.id);

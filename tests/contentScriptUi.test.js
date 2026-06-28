@@ -53,7 +53,7 @@ const createChromeMock = () => {
     panelEnabled: false,
     panelMode: "",
     analysisTimestamps: {},
-    marketDataVersion: 4,
+    marketDataVersion: 5,
     autoAnalysisEnabled: true
   };
   const sentMessages = [];
@@ -242,4 +242,25 @@ test("area preset buttons update comparison options", async () => {
   assert.equal(chrome.storage.options.compareAreaPreset, "20_30");
   assert.equal(chrome.storage.options.compareAreaMin, "20");
   assert.equal(chrome.storage.options.compareAreaMax, "30");
+});
+
+test("scrapes 591 Nuxt showing objects from list pages", async () => {
+  const { dom, chrome } = await loadContentScript();
+  dom.window.document.body.innerHTML = `
+    <script>
+      window.__NUXT__={state:{"cache":{"items":[
+        {showing_object:{target_id:20100989,title:"板橋華廈三房",price_text:"1,388萬",unit_price_text:"55.1萬\\u002F坪",area_text:"25.18坪"},showing_count_7d:62},
+        {showing_object:{target_id:20338704,title:"板橋江子翠華廈",price_text:"1,880萬",unit_price_text:"55.6萬\\u002F坪",area_text:"37.31坪"},showing_count_7d:24}
+      ]}}};
+    </script>
+  `;
+
+  const response = chrome.api.__dispatch({ type: "SCRAPE_LIST" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.listings.length, 2);
+  assert.equal(response.listings[0].id, "20100989");
+  assert.equal(response.listings[0].area, 25.18);
+  assert.equal(response.listings[0].totalPrice, 1388);
+  assert.equal(response.listings[0].pricePerPing, 55.1);
 });

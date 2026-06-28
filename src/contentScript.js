@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 4;
+const MARKET_DATA_VERSION = 5;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
@@ -92,7 +92,7 @@ const scrapeListCards = () => {
     .filter((card, index, all) => card && all.indexOf(card) === index)
     .slice(0, 100);
 
-  return cards
+  const cardListings = cards
     .map((card) => {
       const anchor = card.querySelector(linkSelector) || card;
       const cardText = text(card);
@@ -114,6 +114,56 @@ const scrapeListCards = () => {
       );
     })
     .filter((item) => item && item.price && item.area);
+
+  const nuxtListings = scrapeNuxtShowingObjects();
+  const byId = new Map();
+  for (const item of [...cardListings, ...nuxtListings]) {
+    byId.set(item.id || item.url, item);
+  }
+  return [...byId.values()];
+};
+
+const decodeNuxtValue = (value) => {
+  if (!value) return "";
+  try {
+    return JSON.parse(`"${value.replaceAll('"', '\\"')}"`);
+  } catch {
+    return value.replaceAll("\\u002F", "/");
+  }
+};
+
+const nuxtField = (block, name) => decodeNuxtValue(block.match(new RegExp(`${name}:"((?:\\\\.|[^"])*)"`))?.[1] || "");
+
+const scrapeNuxtShowingObjects = () => {
+  const html = document.documentElement.innerHTML;
+  const listings = [];
+  const objectPattern = /showing_object:\{([\s\S]*?)\},showing_count_7d/g;
+  for (const match of html.matchAll(objectPattern)) {
+    const block = match[1];
+    const id = block.match(/target_id:(\d+)/)?.[1];
+    const title = nuxtField(block, "title");
+    const priceText = nuxtField(block, "price_text");
+    const unitText = nuxtField(block, "unit_price_text");
+    const areaText = nuxtField(block, "area_text");
+    if (!id || !title || !areaText) continue;
+    listings.push(parser.normalizeListing(
+      {
+        id,
+        url: `https://sale.591.com.tw/home/house/detail/2/${id}.html`,
+        source: location.hostname,
+        title,
+        description: `${title} ${priceText} ${unitText} ${areaText}`,
+        price: parser.numberFrom(priceText),
+        totalPrice: parser.numberFrom(priceText),
+        pricePerPing: parser.numberFrom(unitText),
+        area: parser.numberFrom(areaText),
+        mode: "sale",
+        marketKind: "listing"
+      },
+      location.href
+    ));
+  }
+  return listings;
 };
 
 const escapeHtml = (value) =>
