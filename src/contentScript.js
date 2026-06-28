@@ -243,6 +243,12 @@ const panelStyles = `
   #hmk-panel .hmk-poll{margin:8px 0;padding:7px 8px;border-radius:6px;background:#fef3c7;color:#78350f}
   #hmk-panel .hmk-poll.idle,#hmk-panel .hmk-poll.done,#hmk-panel .hmk-poll.skipped{background:#f1f5f9;color:#475569}
   #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
+  #hmk-panel .hmk-price-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:7px 0}
+  #hmk-panel .hmk-price-grid div{border:1px solid #e2e8f0;border-radius:6px;padding:6px;background:#fff}
+  #hmk-panel .hmk-price-grid span{display:block;margin-bottom:2px;color:#64748b;font-size:11px}
+  #hmk-panel .hmk-price-grid strong{display:block;color:#0f766e;font-size:13px;line-height:1.25}
+  #hmk-panel .hmk-price-grid .hmk-diff-high strong{color:#dc2626}
+  #hmk-panel .hmk-price-grid .hmk-diff-low strong{color:#2563eb}
   #hmk-panel .hmk-slices{margin-top:8px;border-radius:6px;background:#f8fafc;padding:8px}
   #hmk-panel .hmk-slices p{margin:0 0 5px}
   #hmk-panel .hmk-slices summary{cursor:pointer;font-weight:650}
@@ -340,8 +346,8 @@ const rentEstimateControlsHtml = (current, options = {}) => {
   const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 2;
   const radius = options.rentEstimateRadiusKm ?? 3;
   return `
-    <section class="hmk-area-filter">
-      <p><strong>租金估算條件</strong></p>
+    <details class="hmk-area-filter">
+      <summary><strong>租金估算條件</strong></summary>
       <p class="hmk-muted">基準坪數：${escapeHtml(ping(current.area))}</p>
       <div class="hmk-slider-row">
         <label><span>- 坪數</span><strong><span class="hmk-rent-minus-value">${escapeHtml(minus)}</span> 坪</strong></label>
@@ -356,7 +362,7 @@ const rentEstimateControlsHtml = (current, options = {}) => {
         <input class="hmk-rent-radius" type="range" min="0.5" max="20" step="0.5" value="${escapeHtml(radius)}">
       </div>
       <p class="hmk-muted">預設用目前物件坪數、-2/+2 坪、地址距離 3km 內；貴幾 % 以每坪租金中位數計算。沒有座標的物件只列為參考。</p>
-    </section>
+    </details>
   `;
 };
 
@@ -365,7 +371,8 @@ const marketBucketHtml = (bucket, mode) => {
   const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
-  const currentText = mode === "sale" ? `${wan(bucket.basePrimary)} / ${unitWan(bucket.baseUnit)}` : `${currency(bucket.basePrimary)} / ${currency(bucket.baseUnit)}/坪`;
+  const currentPrimaryText = mode === "sale" ? wan(bucket.basePrimary) : currency(bucket.basePrimary);
+  const currentUnitText = mode === "sale" ? unitWan(bucket.baseUnit) : `${currency(bucket.baseUnit)}/坪`;
   const pricedCount = bucket.estimateCount ?? bucket.pricedCount ?? 0;
   const areaRangeLabel = bucket.estimateScopeLabel || bucket.areaRange?.label || "權狀不限";
   const sampleWarning = pricedCount < 5
@@ -379,6 +386,20 @@ const marketBucketHtml = (bucket, mode) => {
       : bucket.diffPercent >= 0
         ? `偏高 ${analyzer.displayDiffPercent(bucket.diffPercent).toFixed(1)}%`
         : `偏低 ${analyzer.displayDiffPercent(bucket.diffPercent).toFixed(1)}%`;
+  const diffClass = bucket.diffPercent >= 0 ? "hmk-diff-high" : "hmk-diff-low";
+  const primaryLabel = mode === "sale" ? "目前總價" : "目前月租";
+  const unitLabel = mode === "sale" ? "目前每坪" : "目前每坪租金";
+  const medianPrimaryLabel = mode === "sale" ? "樣本總價中位數" : "樣本月租中位數";
+  const medianUnitLabel = mode === "sale" ? "樣本每坪中位數" : "樣本每坪租金";
+  const summaryHtml = `
+    <div class="hmk-price-grid">
+      <div><span>${escapeHtml(primaryLabel)}</span><strong>${escapeHtml(currentPrimaryText)}</strong></div>
+      <div><span>${escapeHtml(unitLabel)}</span><strong>${escapeHtml(currentUnitText)}</strong></div>
+      <div><span>${escapeHtml(medianPrimaryLabel)}</span><strong>${escapeHtml(primaryText)}</strong></div>
+      <div><span>${escapeHtml(medianUnitLabel)}</span><strong>${escapeHtml(unitText)}</strong></div>
+      ${diff ? `<div class="${escapeHtml(diffClass)}"><span>目前差價</span><strong>${escapeHtml(diff)}</strong></div>` : ""}
+    </div>
+  `;
 
   return `
     <section class="hmk-report">
@@ -387,7 +408,7 @@ const marketBucketHtml = (bucket, mode) => {
       <p class="hmk-muted">地點範圍：優先鄰近捷運站；資料太少時放寬到區塊、行政區與 30km 內座標。估算只使用 ${escapeHtml(areaRangeLabel)}，坪數外只列為附近參考。</p>
       ${
         hasData
-          ? `<p>目前 <strong>${escapeHtml(currentText)}</strong>；估算樣本中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方仍列附近物件，並標註是否納入估算。</p>`
+          ? `${summaryHtml}${sampleWarning}<p class="hmk-muted">下方仍列附近物件，並標註是否納入估算。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${mode === "rent" ? rentDistanceBucketsHtml(bucket.rentDistanceBuckets || []) : ""}
@@ -411,12 +432,12 @@ const diffText = (value) => {
 const rentDistanceBucketsHtml = (buckets) => {
   if (!buckets.length) return "";
   return `
-    <div class="hmk-slices">
-      <p><strong>同坪數租金距離區間</strong></p>
+    <details class="hmk-slices">
+      <summary>同坪數租金距離區間</summary>
       <ul>
         ${buckets.map((bucket) => `<li>${escapeHtml(bucket.label)}：${escapeHtml(bucket.count)} 筆，月租均價 ${escapeHtml(currency(bucket.averagePrimary))}，中位數 ${escapeHtml(currency(bucket.medianPrimary))}，差價 ${escapeHtml(diffText(bucket.diffPercent))}，${escapeHtml(currency(bucket.averageUnit))}/坪</li>`).join("")}
       </ul>
-    </div>
+    </details>
   `;
 };
 
@@ -463,11 +484,11 @@ const marketSliceHtml = (slice, mode) => {
       <p><strong>權狀坪數接近</strong>：${escapeHtml(slice.sameSizeSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameSizeSummary, mode))}</p>
       <p><strong>主建坪數接近</strong>：${escapeHtml(slice.sameMainAreaSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameMainAreaSummary, mode))}</p>
       <p><strong>房型/設備接近</strong>：${escapeHtml(slice.featureSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.featureSummary, mode))}</p>
-      <details open>
+      <details>
         <summary>主建坪數區間價格</summary>
         <ul>${mainAreaRows || "<li>主建資料不足</li>"}</ul>
       </details>
-      <details open>
+      <details>
         <summary>主要屋齡區間價格</summary>
         <ul>${ageRows || "<li>屋齡資料不足</li>"}</ul>
       </details>

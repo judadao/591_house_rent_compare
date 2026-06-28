@@ -166,6 +166,7 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.equal(dom.window.document.querySelector(".hmk-rent-plus").value, "2");
   assert.equal(dom.window.document.querySelector(".hmk-rent-radius").value, "3");
   assert.equal(dom.window.document.querySelector(".hmk-rent-radius").max, "20");
+  assert.equal([...dom.window.document.querySelectorAll("details")].some((node) => node.textContent.includes("租金估算條件") && node.open), false);
   dom.window.document.querySelector(".hmk-rent-minus").value = "1";
   dom.window.document.querySelector(".hmk-rent-plus").value = "3";
   dom.window.document.querySelector(".hmk-rent-radius").value = "5";
@@ -227,11 +228,17 @@ test("rent panel displays current unit rent and a sane high diff", async () => {
   await flush();
 
   const text = dom.window.document.querySelector("#hmk-panel").textContent;
-  assert.match(text, /\$26,959 \/ \$1,797\/坪/);
+  assert.match(text, /目前月租\s*\$26,959/);
+  assert.match(text, /目前每坪租金\s*\$1,797\/坪/);
   assert.match(text, /\$26,865/);
   assert.match(text, /\$1,791\/坪/);
   assert.match(text, /偏高 0\.3%/);
   assert.doesNotMatch(text, /偏低 0\.9%/);
+  for (const label of ["租金估算條件", "同坪數租金距離區間", "主建坪數區間價格", "主要屋齡區間價格"]) {
+    const section = [...dom.window.document.querySelectorAll("details")].find((node) => node.textContent.includes(label));
+    assert.ok(section, label);
+    assert.equal(section.open, false, label);
+  }
 });
 
 test("scrapes rent detail price from Product JSON-LD instead of header ad price", async () => {
