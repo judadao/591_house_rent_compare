@@ -41,7 +41,7 @@
   const marketScopeMatch = (base, item, options = {}) => {
     if (base.mode !== item.mode) return false;
     if (base.city && item.city && base.city !== item.city) return false;
-    const radiusKm = Number(options.radiusKm ?? 5);
+    const radiusKm = Number(options.radiusKm ?? 15);
     const distance = distanceKm(base, item);
     if (distance !== null) return distance <= radiusKm;
     if (options.regionScope === "city") return Boolean(base.city && item.city && base.city === item.city);
@@ -142,8 +142,13 @@
     const scopedItems = items.filter((item) => marketScopeMatch(base, item, options));
     const comparables = scopedItems
       .filter((item) => isComparable(base, item, options))
-      .map((item) => ({ ...item, similarityScore: similarityScore(base, item) }))
-      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .map((item) => ({ ...item, distanceKm: distanceKm(base, item), similarityScore: similarityScore(base, item) }))
+      .sort((a, b) => {
+        if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
+        if (Number.isFinite(a.distanceKm)) return -1;
+        if (Number.isFinite(b.distanceKm)) return 1;
+        return b.similarityScore - a.similarityScore;
+      })
       .slice(0, 20);
 
     const primaryValues = comparables.map(primaryValue);

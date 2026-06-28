@@ -93,7 +93,7 @@ test("city scope keeps same city while allowing broader districts", () => {
   assert.equal(result.listing.comparables[0].id, "same-city");
 });
 
-test("market slice counts default 5km radius items and age buckets", () => {
+test("market slice counts default 15km radius items and age buckets", () => {
   const base = {
     ...baseSale,
     latitude: 25.033,
@@ -102,11 +102,14 @@ test("market slice counts default 5km radius items and age buckets", () => {
   };
   const near = { ...base, id: "near", latitude: 25.034, longitude: 121.566, totalPrice: 3100, pricePerPing: 124, age: 9, marketKind: "listing" };
   const mid = { ...base, id: "mid", latitude: 25.06, longitude: 121.59, totalPrice: 3200, pricePerPing: 128, age: 12, marketKind: "listing" };
-  const far = { ...base, id: "far", latitude: 25.16, longitude: 121.7, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
-  const result = analyzer.analyzeMarket(base, [near, mid, far]);
+  const broad = { ...base, id: "broad", latitude: 25.1, longitude: 121.62, totalPrice: 3300, pricePerPing: 132, age: 18, marketKind: "listing" };
+  const far = { ...base, id: "far", latitude: 25.3, longitude: 121.8, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
+  const result = analyzer.analyzeMarket(base, [near, mid, broad, far]);
 
-  assert.equal(result.listing.marketSlice.scopeCount, 2);
-  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 2);
+  assert.equal(result.listing.marketSlice.scopeCount, 3);
+  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 3);
+  assert.equal(result.listing.comparables[0].id, "near");
+  assert.ok(result.listing.comparables[0].distanceKm < result.listing.comparables[1].distanceKm);
 });
 
 test("market scope falls back to area block when coordinates are absent", () => {

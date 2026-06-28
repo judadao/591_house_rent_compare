@@ -23,7 +23,7 @@ Chrome extension for analyzing 591 listings against nearby 591 asking-price/rent
 
 The panel summarizes the market by location first, then comparable conditions:
 
-- Default location range: listings within 5km when coordinates are available.
+- Default location range: listings within 15km when coordinates are available.
 - Fallback range: known area block, such as 府中 or 江子翠, then district, then city.
 - Shows total listings inside the range.
 - Shows price by age bucket, same-size listings, and listings matching extra conditions such as building type, room count, elevator, and parking.

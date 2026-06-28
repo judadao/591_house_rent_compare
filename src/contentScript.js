@@ -190,7 +190,7 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
-      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，預設 5km 半徑；無座標時以區域塊/行政區估算。</p>
+      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，預設 15km 半徑；無座標時以區域塊/行政區估算。</p>
       ${
         hasData
           ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
@@ -200,12 +200,15 @@ const marketBucketHtml = (bucket, mode) => {
       <ol>
         ${bucket.comparables
           .slice(0, 4)
-          .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml(item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`)}</span></li>`)
+          .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml(distanceText(item))} / ${escapeHtml(item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`)}</span></li>`)
           .join("")}
       </ol>
     </section>
   `;
 };
+
+const distanceText = (item) =>
+  Number.isFinite(item.distanceKm) ? `距離 ${Math.round(item.distanceKm * 10) / 10} km` : "距離未知";
 
 const inventorySummaryHtml = (items) => {
   const sale = items.filter((item) => item.mode === "sale" && item.marketKind === "listing").length;
