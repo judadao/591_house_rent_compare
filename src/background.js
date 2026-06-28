@@ -97,6 +97,7 @@ const enrichWithSearchContext = (item, base, mode, source) => ({
   district: item.district || base.district || "",
   addressRoad: item.addressRoad || base.addressRoad || "",
   areaBlock: item.areaBlock || base.areaBlock || "",
+  transitStation: item.transitStation || base.transitStation || "",
   latitude: item.latitude ?? null,
   longitude: item.longitude ?? null,
   marketKind: source.marketKind,
@@ -105,7 +106,8 @@ const enrichWithSearchContext = (item, base, mode, source) => ({
     city: base.city || "",
     district: base.district || "",
     areaBlock: base.areaBlock || "",
-    addressRoad: base.addressRoad || ""
+    addressRoad: base.addressRoad || "",
+    transitStation: base.transitStation || ""
   }
 });
 

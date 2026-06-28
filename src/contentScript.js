@@ -190,7 +190,7 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
-      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，預設 15km 半徑；無座標時以區域塊/行政區估算。</p>
+      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，優先用鄰近捷運站；沒有站名時以區域塊/行政區估算，比價排序仍顯示距離。</p>
       ${
         hasData
           ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
@@ -207,8 +207,10 @@ const marketBucketHtml = (bucket, mode) => {
   `;
 };
 
-const distanceText = (item) =>
-  Number.isFinite(item.distanceKm) ? `距離 ${Math.round(item.distanceKm * 10) / 10} km` : "距離未知";
+const distanceText = (item) => {
+  const distance = Number.isFinite(item.distanceKm) ? `距離 ${Math.round(item.distanceKm * 10) / 10} km` : "距離未知";
+  return [item.transitStation ? `捷運${item.transitStation}` : "", distance].filter(Boolean).join(" / ");
+};
 
 const inventorySummaryHtml = (items) => {
   const sale = items.filter((item) => item.mode === "sale" && item.marketKind === "listing").length;
@@ -230,11 +232,20 @@ const marketSliceHtml = (slice, mode) => {
     .slice(0, 5)
     .map((bucket) => `<li>${escapeHtml(bucket.label)}：${escapeHtml(bucket.count)} 筆，${escapeHtml(summaryPrice(bucket, mode))}</li>`)
     .join("");
+  const mainAreaRows = (slice.mainAreaBuckets || [])
+    .slice(0, 6)
+    .map((bucket) => `<li>${escapeHtml(bucket.label)}：${escapeHtml(bucket.count)} 筆，${escapeHtml(summaryPrice(bucket, mode))}</li>`)
+    .join("");
 
   return `
     <div class="hmk-slices">
       <p><strong>同坪數</strong>：${escapeHtml(slice.sameSizeSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameSizeSummary, mode))}</p>
+      <p><strong>同主建</strong>：${escapeHtml(slice.sameMainAreaSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameMainAreaSummary, mode))}</p>
       <p><strong>附加條件</strong>：${escapeHtml(slice.featureSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.featureSummary, mode))}</p>
+      <details open>
+        <summary>主建坪數區間價格</summary>
+        <ul>${mainAreaRows || "<li>主建資料不足</li>"}</ul>
+      </details>
       <details open>
         <summary>主要屋齡區間價格</summary>
         <ul>${ageRows || "<li>屋齡資料不足</li>"}</ul>
@@ -275,7 +286,7 @@ const renderInPagePanel = async (statusText = "") => {
       <button class="hmk-close" title="關閉">×</button>
     </header>
     <div class="hmk-body">
-      <p class="hmk-current">${escapeHtml([current.city, current.district, current.buildingType || current.type, ping(current.area)].filter(Boolean).join(" / "))}</p>
+      <p class="hmk-current">${escapeHtml([current.city, current.district, current.transitStation ? `捷運${current.transitStation}` : "", current.buildingType || current.type, `總${ping(current.area)}`, current.mainArea ? `主建${ping(current.mainArea)}` : "主建未知"].filter(Boolean).join(" / "))}</p>
       ${
         current.mode === "sale"
           ? `<div class="hmk-switch"><button data-mode="sale" class="${panelMode === "sale" ? "active" : ""}">比買房</button><button data-mode="rent" class="${panelMode === "rent" ? "active" : ""}">比租屋</button></div>`

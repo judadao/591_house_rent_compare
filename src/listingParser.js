@@ -99,6 +99,23 @@
     return block?.name || "";
   };
 
+  const parseTransitStation = (sourceText) => {
+    const compact = String(sourceText || "").replace(/\s/g, "");
+    const match = compact.match(/(?:捷運|近|距離)([\u4e00-\u9fa5A-Za-z0-9]{2,12})(?:站|捷運站)/);
+    return match?.[1]?.replace(/捷運$/, "") || "";
+  };
+
+  const parsePublicFacilityRatio = (sourceText) => {
+    const match = String(sourceText || "").match(/公設比\s*(\d+(?:\.\d+)?)\s*%/);
+    const ratio = numberFrom(match?.[1]);
+    return ratio ? ratio / 100 : null;
+  };
+
+  const parseMainArea = (sourceText) => {
+    const match = String(sourceText || "").match(/(?:主建物|主建坪數|主建)\s*(\d+(?:\.\d+)?)\s*坪/);
+    return numberFrom(match?.[1]);
+  };
+
   const parseFloor = (sourceText) => {
     const match = String(sourceText || "").match(/(?:樓層|樓別)?\s*(\d+)\s*\/\s*(\d+)\s*樓/);
     return {
@@ -126,6 +143,12 @@
     const mode = inferMode(partial, raw);
     const marketKind = inferMarketKind(partial, raw);
     const area = partial.area || partial.areaPing || numberFrom(raw.match(/(\d+(?:\.\d+)?)\s*坪/)?.[1]);
+    const publicFacilityRatio = partial.publicFacilityRatio ?? parsePublicFacilityRatio(raw);
+    const mainArea =
+      partial.mainArea ??
+      partial.mainAreaPing ??
+      parseMainArea(raw) ??
+      (area && publicFacilityRatio !== null ? Math.round(area * (1 - publicFacilityRatio) * 10) / 10 : null);
     const monthlyRent = partial.monthlyRent || (mode === "rent" ? numberFrom(raw.match(/([\d,]+)\s*(?:元\/月|元|\/月)/)?.[1]) : null);
     const totalPrice = partial.totalPrice || (mode === "sale" ? numberFrom(raw.match(/([\d,]+(?:\.\d+)?)\s*萬/)?.[1]) : null);
     const pricePerPing =
@@ -157,12 +180,16 @@
       rentPerPing,
       area,
       areaPing: area,
+      mainArea,
+      mainAreaPing: mainArea,
+      publicFacilityRatio,
       city,
       district,
       type: partial.type || inferType(raw),
       buildingType: partial.buildingType || inferBuildingType(raw),
       addressRoad,
       areaBlock: partial.areaBlock || inferAreaBlock({ city, district, addressRoad, raw }),
+      transitStation: partial.transitStation || parseTransitStation(raw),
       latitude: latitude === null ? null : Number(latitude),
       longitude: longitude === null ? null : Number(longitude),
       age: partial.age || numberFrom(raw.match(/(?:屋齡|屋齡約)\s*(\d+(?:\.\d+)?)\s*年/)?.[1]),
@@ -205,6 +232,8 @@
       const keywords = parts.filter(Boolean).join(" ");
       if (keywords && !searches.includes(keywords)) searches.push(keywords);
     };
+    add(listing.city, listing.district, listing.transitStation ? `${listing.transitStation}捷運` : "");
+    add(listing.city, listing.district, listing.transitStation ? `${listing.transitStation}站` : "");
     add(listing.city, listing.district, listing.addressRoad);
     add(listing.city, listing.district);
     add(listing.city);
@@ -229,6 +258,9 @@
     inferMarketKind,
     parseAddressRoad,
     inferAreaBlock,
+    parseTransitStation,
+    parsePublicFacilityRatio,
+    parseMainArea,
     parseFloor,
     parseFeatureFlags,
     normalizeListing,

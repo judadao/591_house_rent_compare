@@ -38,12 +38,42 @@
     return radius * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
   };
 
+  const MRT_LINES = [
+    ["頂埔", "永寧", "土城", "海山", "亞東醫院", "府中", "板橋", "新埔", "江子翠", "龍山寺", "西門", "台北車站", "善導寺", "忠孝新生", "忠孝復興", "忠孝敦化", "國父紀念館", "市政府", "永春", "後山埤", "昆陽", "南港", "南港展覽館"],
+    ["淡水", "紅樹林", "竹圍", "關渡", "忠義", "復興崗", "北投", "奇岩", "唭哩岸", "石牌", "明德", "芝山", "士林", "劍潭", "圓山", "民權西路", "雙連", "中山", "台北車站", "台大醫院", "中正紀念堂", "東門", "大安森林公園", "大安", "信義安和", "台北101", "象山"],
+    ["迴龍", "丹鳳", "輔大", "新莊", "頭前庄", "先嗇宮", "三重", "菜寮", "台北橋", "大橋頭", "民權西路", "中山國小", "行天宮", "松江南京", "忠孝新生", "東門", "古亭", "頂溪", "永安市場", "景安", "南勢角"],
+    ["松山", "南京三民", "台北小巨蛋", "南京復興", "松江南京", "中山", "北門", "西門", "小南門", "中正紀念堂", "古亭", "台電大樓", "公館", "萬隆", "景美", "大坪林", "七張", "新店區公所", "新店"],
+    ["動物園", "木柵", "萬芳社區", "萬芳醫院", "辛亥", "麟光", "六張犁", "科技大樓", "大安", "忠孝復興", "南京復興", "中山國中", "松山機場", "大直", "劍南路", "西湖", "港墘", "文德", "內湖", "大湖公園", "葫洲", "東湖", "南港軟體園區", "南港展覽館"]
+  ];
+
+  const stationDistance = (a, b) => {
+    if (!a || !b) return null;
+    if (a === b) return 0;
+    let best = null;
+    for (const line of MRT_LINES) {
+      const ai = line.indexOf(a);
+      const bi = line.indexOf(b);
+      if (ai === -1 || bi === -1) continue;
+      const distance = Math.abs(ai - bi);
+      best = best === null ? distance : Math.min(best, distance);
+    }
+    return best;
+  };
+
+  const sameOrNearbyStation = (baseStation, itemStation, maxStops = 1) => {
+    const stops = stationDistance(baseStation, itemStation);
+    return stops !== null && stops <= maxStops;
+  };
+
   const marketScopeMatch = (base, item, options = {}) => {
     if (base.mode !== item.mode) return false;
     if (base.city && item.city && base.city !== item.city) return false;
-    const radiusKm = Number(options.radiusKm ?? 15);
-    const distance = distanceKm(base, item);
-    if (distance !== null) return distance <= radiusKm;
+    const maxStationStops = Number(options.maxStationStops ?? 1);
+    if (base.transitStation) {
+      if (sameOrNearbyStation(base.transitStation, item.transitStation, maxStationStops)) return true;
+      if (sameOrNearbyStation(base.transitStation, item.searchContext?.transitStation, maxStationStops)) return true;
+      if (item.transitStation || item.searchContext?.transitStation) return false;
+    }
     if (options.regionScope === "city") return Boolean(base.city && item.city && base.city === item.city);
     if (base.areaBlock && item.areaBlock) return base.areaBlock === item.areaBlock;
     if (base.district && item.district) return base.district === item.district;
@@ -78,6 +108,15 @@
     return "31年以上";
   };
 
+  const mainAreaBucketLabel = (mainArea) => {
+    if (!Number.isFinite(mainArea)) return "主建未知";
+    if (mainArea < 10) return "主建10坪以下";
+    if (mainArea < 20) return "主建10-20坪";
+    if (mainArea < 30) return "主建20-30坪";
+    if (mainArea < 40) return "主建30-40坪";
+    return "主建40坪以上";
+  };
+
   const groupSummary = (items, labeler) => {
     const groups = new Map();
     for (const item of items) {
@@ -96,6 +135,9 @@
     const sameSizeItems = base.area
       ? scopeItems.filter((item) => item.area && item.area >= base.area * (1 - sameSizeTolerance) && item.area <= base.area * (1 + sameSizeTolerance))
       : [];
+    const sameMainAreaItems = base.mainArea
+      ? scopeItems.filter((item) => item.mainArea && item.mainArea >= base.mainArea * (1 - sameSizeTolerance) && item.mainArea <= base.mainArea * (1 + sameSizeTolerance))
+      : [];
     const featureItems = scopeItems.filter((item) => {
       if (base.buildingType && item.buildingType && base.buildingType !== item.buildingType) return false;
       if (base.rooms && item.rooms && base.rooms !== item.rooms) return false;
@@ -108,7 +150,9 @@
       scopeCount: scopeItems.length,
       scopeSummary: summarizeValues(scopeItems),
       ageBuckets: groupSummary(scopeItems, (item) => ageBucketLabel(item.age)),
+      mainAreaBuckets: groupSummary(scopeItems, (item) => mainAreaBucketLabel(item.mainArea)),
       sameSizeSummary: summarizeValues(sameSizeItems),
+      sameMainAreaSummary: summarizeValues(sameMainAreaItems),
       featureSummary: summarizeValues(featureItems)
     };
   };
@@ -117,6 +161,9 @@
     let score = 0;
     if (base.city && item.city === base.city) score += 18;
     if (base.district && item.district === base.district) score += 24;
+    const stops = stationDistance(base.transitStation, item.transitStation);
+    if (stops === 0) score += 28;
+    else if (stops === 1) score += 18;
     if (base.addressRoad && item.addressRoad === base.addressRoad) score += 16;
     if (base.buildingType && item.buildingType === base.buildingType) score += 18;
     if (base.type && item.type === base.type) score += 10;
@@ -218,8 +265,11 @@
     unitValue,
     primaryValue,
     distanceKm,
+    stationDistance,
+    sameOrNearbyStation,
     marketScopeMatch,
     summarizeValues,
+    mainAreaBucketLabel,
     sliceMarket,
     similarityScore,
     isComparable,

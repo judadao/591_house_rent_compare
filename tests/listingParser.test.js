@@ -61,6 +61,25 @@ test("normalizes sale listing values separately from rent values", () => {
   assert.equal(listing.age, 12);
 });
 
+test("parses and infers main area from public facility ratio", () => {
+  const direct = parser.normalizeListing({
+    url: "https://sale.591.com.tw/home/house/detail/2/778.html",
+    title: "新北市板橋區捷運江子翠站電梯大樓",
+    description: "總價 3000萬 30坪 主建物 20坪 公設比 33%"
+  });
+  const inferred = parser.normalizeListing({
+    url: "https://sale.591.com.tw/home/house/detail/2/779.html",
+    title: "新北市板橋區近江子翠站電梯大樓",
+    description: "總價 3000萬 30坪 公設比 33%"
+  });
+
+  assert.equal(direct.mainArea, 20);
+  assert.equal(direct.mainAreaPing, 20);
+  assert.equal(direct.publicFacilityRatio, 0.33);
+  assert.equal(direct.transitStation, "江子翠");
+  assert.equal(inferred.mainArea, 20.1);
+});
+
 test("builds market search url from current listing conditions", () => {
   const url = parser.buildMarketSearchUrl({
     city: "台北市",
@@ -78,8 +97,11 @@ test("builds regional search keywords from narrow to broad", () => {
   assert.deepEqual(parser.buildRegionalSearchKeywords({
     city: "台北市",
     district: "信義區",
+    transitStation: "市政府",
     addressRoad: "松仁路"
   }), [
+    "台北市 信義區 市政府捷運",
+    "台北市 信義區 市政府站",
     "台北市 信義區 松仁路",
     "台北市 信義區",
     "台北市"

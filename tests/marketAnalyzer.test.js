@@ -93,23 +93,37 @@ test("city scope keeps same city while allowing broader districts", () => {
   assert.equal(result.listing.comparables[0].id, "same-city");
 });
 
-test("market slice counts default 15km radius items and age buckets", () => {
+test("market slice uses nearby stations and sorts comparables by km distance", () => {
   const base = {
     ...baseSale,
     latitude: 25.033,
     longitude: 121.565,
+    transitStation: "市政府",
     age: 8
   };
-  const near = { ...base, id: "near", latitude: 25.034, longitude: 121.566, totalPrice: 3100, pricePerPing: 124, age: 9, marketKind: "listing" };
-  const mid = { ...base, id: "mid", latitude: 25.06, longitude: 121.59, totalPrice: 3200, pricePerPing: 128, age: 12, marketKind: "listing" };
-  const broad = { ...base, id: "broad", latitude: 25.1, longitude: 121.62, totalPrice: 3300, pricePerPing: 132, age: 18, marketKind: "listing" };
-  const far = { ...base, id: "far", latitude: 25.3, longitude: 121.8, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
-  const result = analyzer.analyzeMarket(base, [near, mid, broad, far]);
+  const sameStationFarther = { ...base, id: "same-station-farther", latitude: 25.06, longitude: 121.59, totalPrice: 3200, pricePerPing: 128, age: 12, marketKind: "listing" };
+  const nearbyStationNearer = { ...base, id: "nearby-station-nearer", transitStation: "永春", latitude: 25.034, longitude: 121.566, totalPrice: 3100, pricePerPing: 124, age: 9, marketKind: "listing" };
+  const farStation = { ...base, id: "far-station", transitStation: "江子翠", latitude: 25.03, longitude: 121.47, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
+  const result = analyzer.analyzeMarket(base, [sameStationFarther, nearbyStationNearer, farStation]);
 
-  assert.equal(result.listing.marketSlice.scopeCount, 3);
-  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 3);
-  assert.equal(result.listing.comparables[0].id, "near");
+  assert.equal(result.listing.marketSlice.scopeCount, 2);
+  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 2);
+  assert.equal(result.listing.comparables[0].id, "nearby-station-nearer");
+  assert.equal(result.listing.comparables[1].id, "same-station-farther");
   assert.ok(result.listing.comparables[0].distanceKm < result.listing.comparables[1].distanceKm);
+});
+
+test("market slice groups main area buckets including unknown", () => {
+  const base = { ...baseSale, city: "新北市", district: "板橋區", transitStation: "江子翠", mainArea: 22 };
+  const result = analyzer.analyzeMarket(base, [
+    { ...base, id: "known", mainArea: 22, totalPrice: 2000, pricePerPing: 80, marketKind: "listing" },
+    { ...base, id: "unknown", mainArea: null, totalPrice: 1800, pricePerPing: 72, marketKind: "listing" }
+  ]);
+  const labels = result.listing.marketSlice.mainAreaBuckets.map((bucket) => bucket.label);
+
+  assert.ok(labels.includes("主建20-30坪"));
+  assert.ok(labels.includes("主建未知"));
+  assert.equal(result.listing.marketSlice.sameMainAreaSummary.count, 1);
 });
 
 test("market scope falls back to area block when coordinates are absent", () => {
