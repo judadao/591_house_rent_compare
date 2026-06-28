@@ -105,8 +105,16 @@
 
   const parseTransitStation = (sourceText) => {
     const compact = String(sourceText || "").replace(/\s/g, "");
-    const match = compact.match(/(?:捷運|近|距離)([\u4e00-\u9fa5A-Za-z0-9]{2,12})(?:站|捷運站)/);
-    return match?.[1]?.replace(/捷運$/, "") || "";
+    const patterns = [
+      /距(?:離)?(?:捷運)?([\u4e00-\u9fa5A-Za-z0-9]{2,12}?)(?:捷運站|站)?\d+(?:\.\d+)?公尺/,
+      /距(?:離)?([\u4e00-\u9fa5A-Za-z0-9]{2,12})(?:捷運站|站)/,
+      /(?:捷運|近)([\u4e00-\u9fa5A-Za-z0-9]{2,12})(?:站|捷運站)/
+    ];
+    for (const pattern of patterns) {
+      const match = compact.match(pattern);
+      if (match?.[1]) return match[1].replace(/捷運$/, "");
+    }
+    return "";
   };
 
   const parsePublicFacilityRatio = (sourceText) => {

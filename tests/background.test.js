@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const flushAll = async () => {
-  for (let index = 0; index < 8; index += 1) await flush();
+  for (let index = 0; index < 16; index += 1) await flush();
 };
 
 const loadBackground = (storageOverrides = {}) => {
@@ -145,6 +145,7 @@ const loadBackground = (storageOverrides = {}) => {
 };
 
 const assertPollingUsesOneBackgroundTab = async (analysisMode) => {
+  const isRent = analysisMode === "rent";
   const dueListing = {
     id: `current-${analysisMode}`,
     url: analysisMode === "sale" ? "https://sale.591.com.tw/home/house/detail/2/123.html" : "https://rent.591.com.tw/123",
@@ -153,8 +154,9 @@ const assertPollingUsesOneBackgroundTab = async (analysisMode) => {
     district: "板橋區",
     buildingType: "華廈",
     totalPrice: 1800,
-    monthlyRent: 32000,
-    area: 25
+    monthlyRent: isRent ? 16999 : 32000,
+    area: isRent ? 13 : 25,
+    transitStation: isRent ? "板新" : ""
   };
   const { alarmListeners, storage, tabs } = loadBackground({
     marketWatchlist: [
@@ -168,8 +170,17 @@ const assertPollingUsesOneBackgroundTab = async (analysisMode) => {
   await flushAll();
 
   assert.equal(tabs.created.length, 1);
-  assert.equal(tabs.updated.length, 0);
+  assert.equal(tabs.updated.length, isRent ? 1 : 0);
   assert.equal(tabs.removed.length, 1);
+  if (isRent) {
+    const focused = new URL(tabs.updated[0].url);
+    assert.equal(focused.origin, "https://rent.591.com.tw");
+    assert.equal(focused.pathname, "/list");
+    assert.equal(focused.searchParams.get("price"), "10000_20000,5000_10000,0_5000");
+    assert.equal(focused.searchParams.get("acreage"), "10_20,0_10");
+    assert.equal(focused.searchParams.get("metro"), "168");
+    assert.equal(focused.searchParams.get("station"), "4275");
+  }
   assert.equal(storage.marketPollStatus.state, "done");
   assert.match(storage.marketPollStatus.message, /檢查 1 筆/);
   assert.equal(Object.keys(storage.marketPollState).length, 1);
@@ -179,7 +190,7 @@ test("polling processes only one due sale watch with one source", async () => {
   await assertPollingUsesOneBackgroundTab("sale");
 });
 
-test("polling processes only one due rent watch with one source", async () => {
+test("polling processes only one due rent watch with focused source in the same tab", async () => {
   await assertPollingUsesOneBackgroundTab("rent");
 });
 

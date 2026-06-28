@@ -3,11 +3,15 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 9;
+const MARKET_DATA_VERSION = 10;
 const REGION_REFRESH_KEY = "marketRegionRefreshState";
 const analysisInFlight = new Set();
 const REGION_SECTION_IDS = {
   "新北市|板橋區": { regionid: 3, section: 26 }
+};
+const RENT_STATION_IDS = {
+  "新北市|板橋區|府中": { metro: 168, station: 4275 },
+  "新北市|板橋區|板新": { metro: 168, station: 4275 }
 };
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
@@ -128,8 +132,48 @@ const regionalMarketSources = (base, analysisMode = base.mode) => {
     structured.searchParams.set("section", regionSection.section);
     if (searchBase.mode === "sale") structured.searchParams.set("shType", "list");
     add(`591 ${searchBase.mode === "sale" ? "買房" : "租屋"} ${searchBase.city}${searchBase.district}`, structured.toString(), "listing");
+    if (searchBase.mode === "rent") {
+      const focused = rentFocusedSource(searchBase, regionSection);
+      if (focused) add(focused.label, focused.url, "listing");
+    }
   }
   return sources.length ? sources : marketSearchUrls(searchBase, analysisMode).slice(0, 1);
+};
+
+const rentAcreageBuckets = (area) => {
+  if (!Number.isFinite(area)) return "";
+  if (area <= 10) return "0_10,10_20";
+  if (area <= 20) return "10_20,0_10";
+  if (area <= 30) return "20_30,10_20";
+  if (area <= 40) return "30_40,20_30";
+  return "40_,30_40";
+};
+
+const rentPriceBuckets = (rent) => {
+  if (!Number.isFinite(rent)) return "";
+  if (rent <= 10000) return "0_5000,5000_10000,10000_20000";
+  if (rent <= 20000) return "10000_20000,5000_10000,0_5000";
+  if (rent <= 30000) return "20000_30000,10000_20000";
+  if (rent <= 50000) return "30000_50000,20000_30000";
+  return "50000_,30000_50000";
+};
+
+const rentFocusedSource = (base, regionSection) => {
+  const url = new URL("https://rent.591.com.tw/list");
+  url.searchParams.set("region", regionSection.regionid);
+  url.searchParams.set("section", regionSection.section);
+  const price = rentPriceBuckets(base.monthlyRent || base.price);
+  const acreage = rentAcreageBuckets(base.area);
+  if (price) url.searchParams.set("price", price);
+  if (acreage) url.searchParams.set("acreage", acreage);
+  const station = RENT_STATION_IDS[`${base.city}|${base.district}|${base.transitStation || ""}`];
+  if (station) {
+    url.searchParams.set("metro", station.metro);
+    url.searchParams.set("station", station.station);
+  } else if (base.areaBlock || base.transitStation) {
+    url.searchParams.set("keywords", base.transitStation || base.areaBlock);
+  }
+  return { label: `591 租屋焦點 ${base.city}${base.district}`, url: url.toString() };
 };
 
 const enrichWithSearchContext = (item, base, mode, source) => ({

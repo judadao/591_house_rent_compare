@@ -60,6 +60,19 @@ test("keeps rent mode for rent house urls", () => {
   assert.equal(listing.buildingType, "華廈");
 });
 
+test("parses compact MRT distance text from rent pages", () => {
+  const listing = parser.normalizeListing({
+    url: "https://rent.591.com.tw/21041383",
+    title: "1房1廳板新捷運頂佳",
+    description: "距板新站448公尺 13坪 16,999元/月 新北市板橋區"
+  });
+
+  assert.equal(parser.parseTransitStation("距板新站448公尺"), "板新");
+  assert.equal(listing.transitStation, "板新");
+  assert.equal(listing.area, 13);
+  assert.equal(listing.monthlyRent, 16999);
+});
+
 test("normalizes sale listing values separately from rent values", () => {
   const listing = parser.normalizeListing({
     url: "https://sale.591.com.tw/home/house/detail/2/777.html",
