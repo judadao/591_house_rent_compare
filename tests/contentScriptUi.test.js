@@ -167,6 +167,7 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.equal(dom.window.document.querySelector(".hmk-rent-radius").value, "3");
   assert.equal(dom.window.document.querySelector(".hmk-rent-radius").max, "20");
   assert.equal([...dom.window.document.querySelectorAll("details")].some((node) => node.textContent.includes("租金估算條件") && node.open), false);
+  dom.window.document.querySelector(".hmk-rent-controls").open = true;
   dom.window.document.querySelector(".hmk-rent-minus").value = "1";
   dom.window.document.querySelector(".hmk-rent-plus").value = "3";
   dom.window.document.querySelector(".hmk-rent-radius").value = "5";
@@ -176,6 +177,8 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.equal(chrome.storage.options.rentAreaMinusPing, "1");
   assert.equal(chrome.storage.options.rentAreaPlusPing, "3");
   assert.equal(chrome.storage.options.rentEstimateRadiusKm, "5");
+  assert.equal(chrome.storage.options.rentControlsOpen, true);
+  assert.equal(dom.window.document.querySelector(".hmk-rent-controls").open, true);
 
   const action = dom.window.document.querySelector(".hmk-action");
   assert.ok(action);

@@ -345,8 +345,9 @@ const rentEstimateControlsHtml = (current, options = {}) => {
   const minus = options.rentAreaMinusPing ?? options.rentAreaTolerancePing ?? 2;
   const plus = options.rentAreaPlusPing ?? options.rentAreaTolerancePing ?? 2;
   const radius = options.rentEstimateRadiusKm ?? 3;
+  const openAttr = options.rentControlsOpen ? " open" : "";
   return `
-    <details class="hmk-area-filter">
+    <details class="hmk-area-filter hmk-rent-controls"${openAttr}>
       <summary><strong>租金估算條件</strong></summary>
       <p class="hmk-muted">基準坪數：${escapeHtml(ping(current.area))}</p>
       <div class="hmk-slider-row">
@@ -566,7 +567,8 @@ const renderInPagePanel = async (statusText = "") => {
       rentEstimateArea: "",
       rentAreaMinusPing: panel.querySelector(".hmk-rent-minus")?.value || "0",
       rentAreaPlusPing: panel.querySelector(".hmk-rent-plus")?.value || "0",
-      rentEstimateRadiusKm: panel.querySelector(".hmk-rent-radius")?.value || "3"
+      rentEstimateRadiusKm: panel.querySelector(".hmk-rent-radius")?.value || "3",
+      rentControlsOpen: true
     };
     await chrome.storage.local.set({ options: nextOptions });
     await renderInPagePanel("已套用租金估算條件。");
