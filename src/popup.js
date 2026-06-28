@@ -205,13 +205,14 @@ const renderMarketBucket = (bucket) => {
         : `偏低 ${Math.abs(bucket.diffPercent).toFixed(1)}%`;
   const unitText = state.current?.mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = state.current?.mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
+  const pricedCount = bucket.pricedCount ?? bucket.count;
 
   return `
     <article class="market-report">
       <h3>${escapeHtml(bucket.label)}</h3>
       ${
         hasData
-          ? `<p class="summary">相似案例 <strong>${bucket.count}</strong> 筆，信心度 <strong>${escapeHtml(bucket.confidence)}</strong>。中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
+          ? `<p class="summary">找到 <strong>${bucket.count}</strong> 個範圍物件，其中 <strong>${escapeHtml(pricedCount)}</strong> 個可估價。中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
           : `<p class="summary">目前沒有足夠資料。請按「分析附近行情」自動補資料，或匯入/收集更多同區案例。</p>`
       }
       <ol class="comparables">

@@ -178,3 +178,16 @@ test("falls back to scoped items when strict comparable list is too small", () =
   assert.equal(result.listing.comparables[0].id, "near-size");
   assert.equal(result.listing.comparables[1].id, "strict-one");
 });
+
+test("keeps scoped listings without price in the displayed comparable list", () => {
+  const base = { ...baseSale, area: 30, totalPrice: 1900, pricePerPing: 63.3 };
+  const result = analyzer.analyzeMarket(base, [
+    { ...base, id: "priced", area: 29, totalPrice: 1688, pricePerPing: 58.2, marketKind: "listing" },
+    { ...base, id: "unknown-price", area: 30, totalPrice: null, pricePerPing: null, price: null, marketKind: "listing" }
+  ]);
+
+  assert.equal(result.listing.marketSlice.scopeCount, 2);
+  assert.equal(result.listing.count, 2);
+  assert.equal(result.listing.pricedCount, 1);
+  assert.ok(result.listing.comparables.some((item) => item.id === "unknown-price"));
+});

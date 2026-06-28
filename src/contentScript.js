@@ -212,6 +212,7 @@ const marketBucketHtml = (bucket, mode) => {
   const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
+  const pricedCount = bucket.pricedCount ?? bucket.count;
   const diff =
     bucket.diffPercent === null
       ? ""
@@ -222,10 +223,11 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
-      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，優先用鄰近捷運站；樣本太少時自動放寬到區塊、行政區與 30km 內座標，比價排序仍顯示距離。</p>
+      <p>找到 <strong>${escapeHtml(bucket.count)}</strong> 個範圍物件。</p>
+      <p class="hmk-muted">範圍優先用鄰近捷運站；資料太少時自動放寬到區塊、行政區與 30km 內座標。</p>
       ${
         hasData
-          ? `<p>${bucket.comparableMode === "scope" ? "範圍案例" : "相似案例"} <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p><p class="hmk-muted">物件列表依權狀坪數接近度優先排序，再看距離。</p>`
+          ? `<p>其中 <strong>${escapeHtml(pricedCount)}</strong> 個有價格可計算：中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p><p class="hmk-muted">下方依權狀坪數接近度排序，再看距離。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${marketSliceHtml(slice, mode)}
@@ -279,9 +281,9 @@ const marketSliceHtml = (slice, mode) => {
 
   return `
     <div class="hmk-slices">
-      <p><strong>同坪數</strong>：${escapeHtml(slice.sameSizeSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameSizeSummary, mode))}</p>
-      <p><strong>同主建</strong>：${escapeHtml(slice.sameMainAreaSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameMainAreaSummary, mode))}</p>
-      <p><strong>附加條件</strong>：${escapeHtml(slice.featureSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.featureSummary, mode))}</p>
+      <p><strong>權狀坪數接近</strong>：${escapeHtml(slice.sameSizeSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameSizeSummary, mode))}</p>
+      <p><strong>主建坪數接近</strong>：${escapeHtml(slice.sameMainAreaSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameMainAreaSummary, mode))}</p>
+      <p><strong>房型/設備接近</strong>：${escapeHtml(slice.featureSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.featureSummary, mode))}</p>
       <details open>
         <summary>主建坪數區間價格</summary>
         <ul>${mainAreaRows || "<li>主建資料不足</li>"}</ul>

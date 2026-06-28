@@ -201,7 +201,6 @@
 
   const comparableRankedItems = (base, items) =>
     items
-      .filter((item) => Number.isFinite(primaryValue(item)))
       .map((item) => ({
         ...item,
         distanceKm: distanceKm(base, item),
@@ -245,9 +244,10 @@
     const minComparableCount = Number(options.minComparableCount ?? 5);
     const comparableMode = strictComparables.length >= minComparableCount ? "strict" : "scope";
     const comparables = (comparableMode === "strict" ? strictComparables : comparableRankedItems(base, scopedItems)).slice(0, 20);
+    const pricedComparables = comparables.filter((item) => Number.isFinite(primaryValue(item)));
 
-    const primaryValues = comparables.map(primaryValue);
-    const unitValues = comparables.map(unitValue);
+    const primaryValues = pricedComparables.map(primaryValue);
+    const unitValues = pricedComparables.map(unitValue);
     const basePrimary = primaryValue(base);
     const baseUnit = unitValue(base);
     const medianPrimary = median(primaryValues);
@@ -259,7 +259,8 @@
     return {
       label,
       count: comparables.length,
-      confidence: comparables.length >= 12 ? "high" : comparables.length >= 5 ? "medium" : "low",
+      pricedCount: pricedComparables.length,
+      confidence: pricedComparables.length >= 12 ? "high" : pricedComparables.length >= 5 ? "medium" : "low",
       medianPrimary,
       medianUnit,
       p25Primary: percentile(primaryValues, 0.25),
