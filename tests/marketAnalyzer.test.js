@@ -68,6 +68,7 @@ test("summarizes rent prices by km ranges and same district", () => {
   };
   const result = analyzer.analyzeMarket(baseRent, [
     { ...baseRent, id: "r-1km", monthlyRent: 30000, latitude: 25.0375, longitude: 121.565 },
+    { ...baseRent, id: "r-large", area: 45, monthlyRent: 90000, latitude: 25.0376, longitude: 121.565 },
     { ...baseRent, id: "r-3km", monthlyRent: 34000, latitude: 25.051, longitude: 121.565 },
     { ...baseRent, id: "r-5km", monthlyRent: 38000, latitude: 25.069, longitude: 121.565 },
     { ...baseRent, id: "r-district", monthlyRent: 38000, latitude: null, longitude: null }

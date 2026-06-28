@@ -228,8 +228,16 @@
   const rentDistanceSummary = (base, items, options = {}) => {
     if (base.mode !== "rent") return [];
     const areaRange = resolveAreaRange(base, options);
+    const rentAreaTolerance = Number(options.rentDistanceAreaTolerance ?? 0.15);
+    const rentMinAreaTolerancePing = Number(options.rentDistanceMinAreaTolerancePing ?? 3);
+    const areaCloseEnough = (item) => {
+      if (!Number.isFinite(base.area)) return true;
+      if (!Number.isFinite(item.area)) return false;
+      const maxDelta = Math.max(base.area * rentAreaTolerance, rentMinAreaTolerancePing);
+      return Math.abs(item.area - base.area) <= maxDelta;
+    };
     const pricedItems = items
-      .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange))
+      .filter((item) => basicScopeMatch(base, item) && isUsableMarketItem(item) && areaRangeMatch(item, areaRange) && areaCloseEnough(item))
       .filter((item) => Number.isFinite(primaryValue(item)));
     const baseRent = primaryValue(base);
     const build = (label, matcher) => {

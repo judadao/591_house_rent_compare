@@ -349,7 +349,7 @@ const rentDistanceBucketsHtml = (buckets) => {
   if (!buckets.length) return "";
   return `
     <div class="hmk-slices">
-      <p><strong>租金距離區間</strong></p>
+      <p><strong>同坪數租金距離區間</strong></p>
       <ul>
         ${buckets.map((bucket) => `<li>${escapeHtml(bucket.label)}：${escapeHtml(bucket.count)} 筆，月租均價 ${escapeHtml(currency(bucket.averagePrimary))}，中位數 ${escapeHtml(currency(bucket.medianPrimary))}，差價 ${escapeHtml(diffText(bucket.diffPercent))}，${escapeHtml(currency(bucket.averageUnit))}/坪</li>`).join("")}
       </ul>
