@@ -147,6 +147,8 @@ const panelStyles = `
   #hmk-panel .hmk-switch button{background:#e2e8f0;color:#334155}
   #hmk-panel .hmk-switch button.active{background:#236f68;color:#fff}
   #hmk-panel .hmk-muted{color:#64748b}
+  #hmk-panel .hmk-poll{margin:8px 0;padding:7px 8px;border-radius:6px;background:#fef3c7;color:#78350f}
+  #hmk-panel .hmk-poll.idle,#hmk-panel .hmk-poll.done,#hmk-panel .hmk-poll.skipped{background:#f1f5f9;color:#475569}
   #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
   #hmk-panel .hmk-slices{margin-top:8px;border-radius:6px;background:#f8fafc;padding:8px}
   #hmk-panel .hmk-slices p{margin:0 0 5px}
@@ -249,6 +251,14 @@ const inventorySummaryHtml = (items) => {
   return `<p class="hmk-muted">本機資料：買房開價 ${escapeHtml(sale)} 筆 / 實價登錄 ${escapeHtml(transaction)} 筆 / 租屋 ${escapeHtml(rent)} 筆</p>`;
 };
 
+const pollStatusHtml = (status) => {
+  if (!status?.message) return "";
+  const message = status.state === "running"
+    ? `${status.message} 會短暫開啟非作用分頁並自動關閉。`
+    : status.message;
+  return `<p class="hmk-poll ${escapeHtml(status.state || "")}">${escapeHtml(message)}</p>`;
+};
+
 const summaryPrice = (summary, mode) => {
   if (!summary || !summary.count) return "-";
   return mode === "sale"
@@ -287,7 +297,7 @@ const marketSliceHtml = (slice, mode) => {
 const renderInPagePanel = async (statusText = "") => {
   if (!analyzer || !chrome?.storage?.local) return;
   const current = scrapeCurrentListing();
-  const data = await chrome.storage.local.get({ listings: [], options: {}, panelMode: "", analysisTimestamps: {}, marketDataVersion: 0, autoAnalysisEnabled: true });
+  const data = await chrome.storage.local.get({ listings: [], options: {}, panelMode: "", analysisTimestamps: {}, marketDataVersion: 0, autoAnalysisEnabled: true, marketPollStatus: null });
   const panelMode = data.panelMode || current.mode;
   const report = analyzer.analyzeMarket(current, data.listings || [], { ...(data.options || {}), analysisMode: panelMode });
   const buckets = panelMode === "sale" ? [report.listing, report.transaction] : [report.rent];
@@ -329,6 +339,7 @@ const renderInPagePanel = async (statusText = "") => {
       </label>
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
+      ${pollStatusHtml(data.marketPollStatus)}
       ${statusText ? `<p class="hmk-muted">${escapeHtml(statusText)}</p>` : ""}
       ${current.mode === "rent" ? `<section class="hmk-report"><h3>買這類房每月房貸估算</h3><p>${estimatedMortgage ? `以同區買賣行情估算，30 年期、2 成自備、年利率 2.5%，每月約 <strong>${escapeHtml(currency(estimatedMortgage))}</strong>。` : "目前買賣行情資料不足，分析附近行情後會嘗試估算。"}</p></section>` : ""}
       ${buckets.map((bucket) => marketBucketHtml(bucket, panelMode)).join("")}

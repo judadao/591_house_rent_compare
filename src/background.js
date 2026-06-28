@@ -67,7 +67,10 @@ const upsertItems = async (items) => {
   }
   const next = [...byId.values()].sort((a, b) => Date.parse(b.collectedAt) - Date.parse(a.collectedAt));
   await storageSetItems(next);
-  await chrome.storage.local.set({ marketDataVersion: MARKET_DATA_VERSION });
+  await chrome.storage.local.set({
+    marketDataVersion: MARKET_DATA_VERSION,
+    [polling.MARKET_DATA_UPDATED_AT_KEY]: new Date().toISOString()
+  });
   return { added: next.length - existing.length, total: next.length };
 };
 
@@ -149,6 +152,7 @@ const resetAndAnalyzeNearby = async (listing, requestedMode = "") => {
     listings: [],
     analysisTimestamps: {},
     marketDataVersion: MARKET_DATA_VERSION,
+    [polling.MARKET_DATA_UPDATED_AT_KEY]: "",
     [polling.WATCHLIST_KEY]: [],
     [polling.POLL_STATE_KEY]: {}
   });
@@ -158,11 +162,41 @@ const resetAndAnalyzeNearby = async (listing, requestedMode = "") => {
 const pollWatchlist = async () => {
   const data = await chrome.storage.local.get({
     [polling.WATCHLIST_KEY]: [],
-    [polling.POLL_STATE_KEY]: {}
+    [polling.POLL_STATE_KEY]: {},
+    [polling.MARKET_DATA_UPDATED_AT_KEY]: ""
   });
+  if (polling.dataIsFresh(data[polling.MARKET_DATA_UPDATED_AT_KEY])) {
+    await chrome.storage.local.set({
+      [polling.POLL_STATUS_KEY]: {
+        state: "skipped",
+        message: "本機資料未滿 15 分鐘，略過本次更新。",
+        updatedAt: new Date().toISOString()
+      }
+    });
+    return { checked: 0, scraped: 0, added: 0, skipped: true };
+  }
+
   const watchlist = data[polling.WATCHLIST_KEY] || [];
   let pollState = data[polling.POLL_STATE_KEY] || {};
   const due = polling.dueWatches(watchlist, pollState);
+  if (!due.length) {
+    await chrome.storage.local.set({
+      [polling.POLL_STATUS_KEY]: {
+        state: "idle",
+        message: "沒有到期的追蹤物件。",
+        updatedAt: new Date().toISOString()
+      }
+    });
+    return { checked: 0, scraped: 0, added: 0 };
+  }
+
+  await chrome.storage.local.set({
+    [polling.POLL_STATUS_KEY]: {
+      state: "running",
+      message: "正在背景更新行情資料...",
+      updatedAt: new Date().toISOString()
+    }
+  });
   let scraped = 0;
   let added = 0;
   for (const watch of due) {
@@ -175,7 +209,14 @@ const pollWatchlist = async () => {
     }
   }
 
-  await chrome.storage.local.set({ [polling.POLL_STATE_KEY]: pollState });
+  await chrome.storage.local.set({
+    [polling.POLL_STATE_KEY]: pollState,
+    [polling.POLL_STATUS_KEY]: {
+      state: "done",
+      message: `背景更新完成：檢查 ${due.length} 筆，收集 ${scraped} 筆，新增 ${added} 筆。`,
+      updatedAt: new Date().toISOString()
+    }
+  });
   return { checked: due.length, scraped, added };
 };
 
