@@ -21,6 +21,7 @@ test("parses layout, floor, and listing id", () => {
     totalFloors: 12
   });
   assert.equal(parser.listingIdFromUrl("https://rent.591.com.tw/rent-detail-123456.html"), "123456");
+  assert.equal(parser.listingIdFromUrl("https://rent.591.com.tw/18001177"), "18001177");
 });
 
 test("normalizes a full listing record", () => {
@@ -43,6 +44,20 @@ test("normalizes a full listing record", () => {
   assert.equal(listing.allowsCooking, true);
   assert.equal(listing.allowsPet, false);
   assert.equal(listing.hasParking, true);
+});
+
+test("keeps rent mode for rent house urls", () => {
+  const listing = parser.normalizeListing({
+    url: "https://rent.591.com.tw/home/house/rent/987654.html",
+    title: "新北市板橋區整層住家",
+    description: "租金 32,000 元/月 25坪 2房1廳1衛 華廈"
+  });
+
+  assert.equal(parser.listingIdFromUrl(listing.url), "987654");
+  assert.equal(listing.mode, "rent");
+  assert.equal(listing.monthlyRent, 32000);
+  assert.equal(listing.area, 25);
+  assert.equal(listing.buildingType, "華廈");
 });
 
 test("normalizes sale listing values separately from rent values", () => {

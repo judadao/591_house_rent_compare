@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 5;
+const MARKET_DATA_VERSION = 6;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
@@ -78,6 +78,7 @@ const scrapeCurrentListing = () => {
 const scrapeListCards = () => {
   const linkSelector = [
     'a[href*="rent-detail"]',
+    'a[href*="rent.591.com.tw/"]',
     'a[href*="/rent/"]',
     'a[href*="rent_id="]',
     'a[href*="sale.591.com.tw"]',
@@ -97,6 +98,8 @@ const scrapeListCards = () => {
       const anchor = card.querySelector(linkSelector) || card;
       const cardText = text(card);
       const url = absoluteUrl(anchor.href || "");
+      if (/rent\.591\.com\.tw/.test(url) && !/(rent-detail-|\/rent\/\d+|rent_id=|rent\.591\.com\.tw\/\d+)/.test(url)) return null;
+      if (/rent\.591\.com\.tw\/(?:list)?\?/.test(url)) return null;
       if (/\/\?(?:.*&)?(?:regionid|section)=|sale\.591\.com\.tw\/?$/.test(url)) return null;
       if (!url || !/(元|萬|坪|房|套房|雅房|大樓|公寓|華廈)/.test(cardText)) return null;
 
@@ -207,6 +210,7 @@ const panelStyles = `
   #hmk-panel .hmk-area-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   #hmk-panel .hmk-area-inputs input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px;color:#1f2933}
   #hmk-panel .hmk-muted{color:#64748b}
+  #hmk-panel .hmk-status{margin:6px 0}
   #hmk-panel .hmk-warning{margin-top:6px;color:#b45309}
   #hmk-panel .hmk-poll{margin:8px 0;padding:7px 8px;border-radius:6px;background:#fef3c7;color:#78350f}
   #hmk-panel .hmk-poll.idle,#hmk-panel .hmk-poll.done,#hmk-panel .hmk-poll.skipped{background:#f1f5f9;color:#475569}
@@ -436,7 +440,7 @@ const renderInPagePanel = async (statusText = "") => {
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
       ${pollStatusHtml(data.marketPollStatus)}
-      ${statusText ? `<p class="hmk-muted">${escapeHtml(statusText)}</p>` : ""}
+      <p class="hmk-status hmk-muted">${escapeHtml(statusText)}</p>
       ${current.mode === "rent" ? `<section class="hmk-report"><h3>買這類房每月房貸估算</h3><p>${estimatedMortgage ? `以同區買賣行情估算，30 年期、2 成自備、年利率 2.5%，每月約 <strong>${escapeHtml(currency(estimatedMortgage))}</strong>。` : "目前買賣行情資料不足，分析附近行情後會嘗試估算。"}</p></section>` : ""}
       ${buckets.map((bucket) => marketBucketHtml(bucket, panelMode)).join("")}
     </div>
@@ -482,6 +486,7 @@ const renderInPagePanel = async (statusText = "") => {
   panel.querySelector(".hmk-area-max")?.addEventListener("change", applyCustomAreaFilter);
   panel.querySelectorAll(".hmk-action").forEach((button) => {
     button.addEventListener("click", async () => {
+      panel.querySelector(".hmk-status").textContent = "正在分析中，會在背景抓取 591 行情...";
       panel.querySelectorAll(".hmk-action").forEach((actionButton) => {
         actionButton.disabled = true;
         actionButton.textContent = "分析中...";
@@ -493,6 +498,9 @@ const renderInPagePanel = async (statusText = "") => {
   const autoKey = `${current.id || current.url}:${panelMode}`;
   if (data.autoAnalysisEnabled && !autoRefreshInFlight.has(autoKey) && (shouldResetLocalData(data) || shouldAutoAnalyze(current, data, report, panelMode))) {
     autoRefreshInFlight.add(autoKey);
+    panel.querySelector(".hmk-status").textContent = shouldResetLocalData(data)
+      ? "正在自動重建本機行情資料..."
+      : "正在自動分析附近行情...";
     requestNearbyAnalysis(current, panelMode, { force: true, reset: shouldResetLocalData(data) })
       .then((response) => {
         autoRefreshInFlight.delete(autoKey);

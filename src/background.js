@@ -3,7 +3,7 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 5;
+const MARKET_DATA_VERSION = 6;
 const REGION_SECTION_IDS = {
   "新北市|板橋區": { regionid: 3, section: 26 }
 };
@@ -85,10 +85,10 @@ const marketSearchUrls = (base, analysisMode = base.mode) => {
   const regionSection = REGION_SECTION_IDS[`${searchBase.city}|${searchBase.district}`];
 
   if (regionSection) {
-    const structured = new URL(searchBase.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/");
-    structured.searchParams.set("regionid", regionSection.regionid);
+    const structured = new URL(searchBase.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/list");
+    structured.searchParams.set(searchBase.mode === "sale" ? "regionid" : "region", regionSection.regionid);
     structured.searchParams.set("section", regionSection.section);
-    structured.searchParams.set("shType", "list");
+    if (searchBase.mode === "sale") structured.searchParams.set("shType", "list");
     add(`591 ${searchBase.mode === "sale" ? "買房" : "租屋"} ${searchBase.city}${searchBase.district}`, structured.toString(), "listing");
   }
 
@@ -128,18 +128,31 @@ const enrichWithSearchContext = (item, base, mode, source) => ({
   }
 });
 
-const scrapeSearchTab = async (source, base, mode) => {
-  const tab = await chrome.tabs.create({ url: source.url, active: false });
+const scrapeLoadedTab = async (tabId, source, base, mode) => {
+  await injectContentScripts(tabId);
+  let response = { listings: [] };
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1800 : 1000));
+    response = await chrome.tabs.sendMessage(tabId, { type: "SCRAPE_LIST" });
+    if ((response?.listings || []).length >= 5) break;
+  }
+  return (response?.listings || []).map((item) => enrichWithSearchContext(item, base, mode, source));
+};
+
+const scrapeSearchSources = async (sources, base, mode) => {
+  if (!sources.length) return [];
+  const tab = await chrome.tabs.create({ url: sources[0].url, active: false });
+  const scraped = [];
   try {
     await waitForTabComplete(tab.id);
-    await injectContentScripts(tab.id);
-    let response = { listings: [] };
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1800 : 1000));
-      response = await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_LIST" });
-      if ((response?.listings || []).length >= 5) break;
+    scraped.push(...await scrapeLoadedTab(tab.id, sources[0], base, mode));
+    for (const source of sources.slice(1)) {
+      const loaded = waitForTabComplete(tab.id);
+      await chrome.tabs.update(tab.id, { url: source.url });
+      await loaded;
+      scraped.push(...await scrapeLoadedTab(tab.id, source, base, mode));
     }
-    return (response?.listings || []).map((item) => enrichWithSearchContext(item, base, mode, source));
+    return scraped;
   } finally {
     if (tab.id) await chrome.tabs.remove(tab.id);
   }
@@ -151,12 +164,12 @@ const analyzeNearby = async (listing, requestedMode = "") => {
   let scraped = [];
   const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
   for (const mode of modes) {
-    for (const source of marketSearchUrls(listing, mode).slice(0, 8)) {
-      try {
-        scraped = scraped.concat(await scrapeSearchTab(source, listing, mode));
-      } catch {
-        continue;
-      }
+    const sourceLimit = mode === "rent" ? 4 : 6;
+    const sources = marketSearchUrls(listing, mode).slice(0, sourceLimit);
+    try {
+      scraped = scraped.concat(await scrapeSearchSources(sources, listing, mode));
+    } catch {
+      continue;
     }
   }
   const result = await upsertItems(scraped);

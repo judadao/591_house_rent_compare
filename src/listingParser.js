@@ -43,8 +43,8 @@
   };
 
   const listingIdFromUrl = (url) => {
-    const match = String(url).match(/(?:rent-detail-|\/rent\/)(\d+)|rent_id=(\d+)|\/(\d+)\.html/);
-    return match?.[1] || match?.[2] || match?.[3] || url;
+    const match = String(url).match(/(?:rent-detail-|\/rent\/)(\d+)|rent_id=(\d+)|\/(?:home\/house\/)?rent\/(\d+)|rent\.591\.com\.tw\/(\d+)(?:[/?#]|$)|\/(\d+)\.html/);
+    return match?.[1] || match?.[2] || match?.[3] || match?.[4] || match?.[5] || url;
   };
 
   const parseRegion = (sourceText) => {
@@ -76,8 +76,8 @@
   const inferMode = (partial, raw) => {
     if (partial.mode) return partial.mode;
     const url = String(partial.url || "");
-    if (/sale|buy|house/i.test(url)) return "sale";
     if (/rent/i.test(url)) return "rent";
+    if (/sale|buy|house/i.test(url)) return "sale";
     if (/萬\/坪|總價|售價|實價登錄|成交/.test(raw)) return "sale";
     return "rent";
   };

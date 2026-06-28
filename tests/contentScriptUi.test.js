@@ -53,7 +53,7 @@ const createChromeMock = () => {
     panelEnabled: false,
     panelMode: "",
     analysisTimestamps: {},
-    marketDataVersion: 5,
+    marketDataVersion: 6,
     autoAnalysisEnabled: true
   };
   const sentMessages = [];
@@ -263,4 +263,24 @@ test("scrapes 591 Nuxt showing objects from list pages", async () => {
   assert.equal(response.listings[0].area, 25.18);
   assert.equal(response.listings[0].totalPrice, 1388);
   assert.equal(response.listings[0].pricePerPing, 55.1);
+});
+
+test("scrapes 591 rent cards as rent listings", async () => {
+  const { dom, chrome } = await loadContentScript();
+  dom.window.document.body.innerHTML = `
+    <article>
+      <a href="https://rent.591.com.tw/987654">板橋江子翠華廈整層住家</a>
+      <div>新北市板橋區 華廈 整層住家 2房1廳1衛 25坪 租金 32,000 元/月 可開伙</div>
+    </article>
+  `;
+
+  const response = chrome.api.__dispatch({ type: "SCRAPE_LIST" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.listings.length, 1);
+  assert.equal(response.listings[0].id, "987654");
+  assert.equal(response.listings[0].mode, "rent");
+  assert.equal(response.listings[0].monthlyRent, 32000);
+  assert.equal(response.listings[0].area, 25);
+  assert.equal(response.listings[0].buildingType, "華廈");
 });
