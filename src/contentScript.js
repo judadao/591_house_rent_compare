@@ -43,6 +43,14 @@ const scrapeCurrentListing = () => {
     getMeta("og:title") ||
     document.title.replace("591租屋網", "").trim();
   const description = getMeta("description") || jsonLd.description || bodyText.slice(0, 3500);
+  const latitude =
+    parser.numberFrom(jsonLd.geo?.latitude) ||
+    parser.numberFrom(document.querySelector('[itemprop="latitude"]')?.content) ||
+    parser.numberFrom(getMeta("place:location:latitude"));
+  const longitude =
+    parser.numberFrom(jsonLd.geo?.longitude) ||
+    parser.numberFrom(document.querySelector('[itemprop="longitude"]')?.content) ||
+    parser.numberFrom(getMeta("place:location:longitude"));
   const price =
     parser.numberFrom(text(document.querySelector('[class*="price"], [class*="Price"]'))) ||
     parser.numberFrom(jsonLd.offers?.price) ||
@@ -55,6 +63,8 @@ const scrapeCurrentListing = () => {
       price,
       url: location.href,
       source: location.hostname,
+      latitude,
+      longitude,
       address: jsonLd.address?.streetAddress || bodyText.match(/地址[:：]?\s*([^\n。]{6,80})/)?.[1] || ""
     },
     location.href
@@ -130,6 +140,10 @@ const panelStyles = `
   #hmk-panel .hmk-switch button.active{background:#236f68;color:#fff}
   #hmk-panel .hmk-muted{color:#64748b}
   #hmk-panel .hmk-report{border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px}
+  #hmk-panel .hmk-slices{margin-top:8px;border-radius:6px;background:#f8fafc;padding:8px}
+  #hmk-panel .hmk-slices p{margin:0 0 5px}
+  #hmk-panel .hmk-slices summary{cursor:pointer;font-weight:650}
+  #hmk-panel .hmk-slices ul{margin:5px 0 0;padding-left:18px}
   #hmk-panel strong{color:#0f766e}
   #hmk-panel ol{margin:6px 0 0;padding-left:18px}
   #hmk-panel li{margin-bottom:6px}
@@ -138,6 +152,7 @@ const panelStyles = `
 
 const marketBucketHtml = (bucket, mode) => {
   const hasData = bucket.count > 0;
+  const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
   const diff =
@@ -150,11 +165,13 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
+      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，預設 2km 半徑；無座標時以區域塊/行政區估算。</p>
       ${
         hasData
           ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按下方按鈕自動抓附近行情。</p>`
       }
+      ${marketSliceHtml(slice, mode)}
       <ol>
         ${bucket.comparables
           .slice(0, 4)
@@ -162,6 +179,32 @@ const marketBucketHtml = (bucket, mode) => {
           .join("")}
       </ol>
     </section>
+  `;
+};
+
+const summaryPrice = (summary, mode) => {
+  if (!summary || !summary.count) return "-";
+  return mode === "sale"
+    ? `${unitWan(summary.medianUnit)}`
+    : `${currency(summary.medianPrimary)} / ${currency(summary.medianUnit)}/坪`;
+};
+
+const marketSliceHtml = (slice, mode) => {
+  if (!slice?.scopeCount) return "";
+  const ageRows = (slice.ageBuckets || [])
+    .slice(0, 5)
+    .map((bucket) => `<li>${escapeHtml(bucket.label)}：${escapeHtml(bucket.count)} 筆，${escapeHtml(summaryPrice(bucket, mode))}</li>`)
+    .join("");
+
+  return `
+    <div class="hmk-slices">
+      <p><strong>同坪數</strong>：${escapeHtml(slice.sameSizeSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.sameSizeSummary, mode))}</p>
+      <p><strong>附加條件</strong>：${escapeHtml(slice.featureSummary?.count || 0)} 筆，${escapeHtml(summaryPrice(slice.featureSummary, mode))}</p>
+      <details open>
+        <summary>主要屋齡區間價格</summary>
+        <ul>${ageRows || "<li>屋齡資料不足</li>"}</ul>
+      </details>
+    </div>
   `;
 };
 

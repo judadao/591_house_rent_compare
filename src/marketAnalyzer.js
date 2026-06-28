@@ -22,6 +22,92 @@
     return item.monthlyRent || item.price || null;
   };
 
+  const distanceKm = (a, b) => {
+    if (!Number.isFinite(a.latitude) || !Number.isFinite(a.longitude) || !Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) {
+      return null;
+    }
+    const toRad = (value) => (value * Math.PI) / 180;
+    const radius = 6371;
+    const dLat = toRad(b.latitude - a.latitude);
+    const dLng = toRad(b.longitude - a.longitude);
+    const lat1 = toRad(a.latitude);
+    const lat2 = toRad(b.latitude);
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return radius * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  };
+
+  const marketScopeMatch = (base, item, options = {}) => {
+    if (base.mode !== item.mode) return false;
+    if (base.city && item.city && base.city !== item.city) return false;
+    const radiusKm = Number(options.radiusKm ?? 2);
+    const distance = distanceKm(base, item);
+    if (distance !== null) return distance <= radiusKm;
+    if (options.regionScope === "city") return Boolean(base.city && item.city && base.city === item.city);
+    if (base.areaBlock && item.areaBlock) return base.areaBlock === item.areaBlock;
+    if (base.district && item.district) return base.district === item.district;
+    return Boolean(base.city && item.city && base.city === item.city);
+  };
+
+  const summarizeValues = (items) => {
+    const primaryValues = items.map(primaryValue);
+    const unitValues = items.map(unitValue);
+    return {
+      count: items.length,
+      medianPrimary: median(primaryValues),
+      medianUnit: median(unitValues),
+      p25Primary: percentile(primaryValues, 0.25),
+      p75Primary: percentile(primaryValues, 0.75),
+      p25Unit: percentile(unitValues, 0.25),
+      p75Unit: percentile(unitValues, 0.75)
+    };
+  };
+
+  const ageBucketLabel = (age) => {
+    if (!Number.isFinite(age)) return "屋齡未知";
+    if (age <= 5) return "0-5年";
+    if (age <= 10) return "6-10年";
+    if (age <= 20) return "11-20年";
+    if (age <= 30) return "21-30年";
+    return "31年以上";
+  };
+
+  const groupSummary = (items, labeler) => {
+    const groups = new Map();
+    for (const item of items) {
+      const label = labeler(item);
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(item);
+    }
+    return [...groups.entries()]
+      .map(([label, groupItems]) => ({ label, ...summarizeValues(groupItems) }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const sliceMarket = (base, items, options = {}) => {
+    const scopeItems = items.filter((item) => marketScopeMatch(base, item, options));
+    const sameSizeTolerance = Number(options.sameSizeTolerance ?? 0.1);
+    const sameSizeItems = base.area
+      ? scopeItems.filter((item) => item.area && item.area >= base.area * (1 - sameSizeTolerance) && item.area <= base.area * (1 + sameSizeTolerance))
+      : [];
+    const featureItems = scopeItems.filter((item) => {
+      if (base.buildingType && item.buildingType && base.buildingType !== item.buildingType) return false;
+      if (base.rooms && item.rooms && base.rooms !== item.rooms) return false;
+      if (base.hasElevator && !item.hasElevator) return false;
+      if (base.hasParking && !item.hasParking) return false;
+      return true;
+    });
+
+    return {
+      scopeCount: scopeItems.length,
+      scopeSummary: summarizeValues(scopeItems),
+      ageBuckets: groupSummary(scopeItems, (item) => ageBucketLabel(item.age)),
+      sameSizeSummary: summarizeValues(sameSizeItems),
+      featureSummary: summarizeValues(featureItems)
+    };
+  };
+
   const similarityScore = (base, item) => {
     let score = 0;
     if (base.city && item.city === base.city) score += 18;
@@ -48,7 +134,8 @@
   };
 
   const analyzeBucket = (base, items, label, options = {}) => {
-    const comparables = items
+    const scopedItems = items.filter((item) => marketScopeMatch(base, item, options));
+    const comparables = scopedItems
       .filter((item) => isComparable(base, item, options))
       .map((item) => ({ ...item, similarityScore: similarityScore(base, item) }))
       .sort((a, b) => b.similarityScore - a.similarityScore)
@@ -75,7 +162,8 @@
       p25Unit: percentile(unitValues, 0.25),
       p75Unit: percentile(unitValues, 0.75),
       diffPercent,
-      comparables
+      comparables,
+      marketSlice: sliceMarket(base, items, options)
     };
   };
 
@@ -119,6 +207,10 @@
     median,
     unitValue,
     primaryValue,
+    distanceKm,
+    marketScopeMatch,
+    summarizeValues,
+    sliceMarket,
     similarityScore,
     isComparable,
     analyzeBucket,

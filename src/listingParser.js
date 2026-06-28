@@ -26,6 +26,15 @@
 
   const RENT_TYPES = ["整層住家", "獨立套房", "分租套房", "雅房", "車位", "其他"];
   const BUILDING_TYPES = ["電梯大樓", "華廈", "公寓", "透天厝", "別墅", "套房", "店面", "辦公", "廠房", "土地", "車位"];
+  const AREA_BLOCKS = [
+    { city: "新北市", district: "板橋區", name: "府中", keywords: ["府中", "縣民大道", "重慶路", "館前", "南門街", "中山路一段"] },
+    { city: "新北市", district: "板橋區", name: "江子翠", keywords: ["江子翠", "文化路二段", "雙十路", "松柏街", "莊敬路"] },
+    { city: "新北市", district: "板橋區", name: "新埔", keywords: ["新埔", "文化路一段", "民生路二段", "莒光路"] },
+    { city: "新北市", district: "板橋區", name: "亞東", keywords: ["亞東", "四川路", "南雅南路", "遠東路"] },
+    { city: "台北市", district: "大安區", name: "師大台電", keywords: ["師大", "台電大樓", "龍泉街", "浦城街"] },
+    { city: "台北市", district: "信義區", name: "市政府", keywords: ["市政府", "松仁路", "松高路", "忠孝東路五段"] },
+    { city: "台北市", district: "信義區", name: "永春", keywords: ["永春", "虎林街", "松山路"] }
+  ];
 
   const numberFrom = (value) => {
     if (!value) return null;
@@ -80,6 +89,16 @@
     return compact.match(/([\u4e00-\u9fa5\d一二三四五六七八九十]+(?:路|街|大道|巷))/)?.[1] || "";
   };
 
+  const inferAreaBlock = ({ city, district, addressRoad, raw }) => {
+    const source = `${addressRoad || ""} ${raw || ""}`;
+    const block = AREA_BLOCKS.find((item) =>
+      (!city || item.city === city) &&
+      (!district || item.district === district) &&
+      item.keywords.some((keyword) => source.includes(keyword))
+    );
+    return block?.name || "";
+  };
+
   const parseFloor = (sourceText) => {
     const match = String(sourceText || "").match(/(?:樓層|樓別)?\s*(\d+)\s*\/\s*(\d+)\s*樓/);
     return {
@@ -118,6 +137,11 @@
       (mode === "rent" && monthlyRent && area ? monthlyRent / area : null);
     const price = partial.price || monthlyRent || totalPrice;
     const url = partial.url || fallbackUrl;
+    const latitude = partial.latitude ?? partial.lat ?? null;
+    const longitude = partial.longitude ?? partial.lng ?? null;
+    const city = partial.city || region.city;
+    const district = partial.district || region.district;
+    const addressRoad = partial.addressRoad || parseAddressRoad(raw);
 
     return {
       id: partial.id || listingIdFromUrl(url),
@@ -133,11 +157,14 @@
       rentPerPing,
       area,
       areaPing: area,
-      city: partial.city || region.city,
-      district: partial.district || region.district,
+      city,
+      district,
       type: partial.type || inferType(raw),
       buildingType: partial.buildingType || inferBuildingType(raw),
-      addressRoad: partial.addressRoad || parseAddressRoad(raw),
+      addressRoad,
+      areaBlock: partial.areaBlock || inferAreaBlock({ city, district, addressRoad, raw }),
+      latitude: latitude === null ? null : Number(latitude),
+      longitude: longitude === null ? null : Number(longitude),
       age: partial.age || numberFrom(raw.match(/(?:屋齡|屋齡約)\s*(\d+(?:\.\d+)?)\s*年/)?.[1]),
       rooms: partial.rooms ?? layout.rooms,
       livingRooms: partial.livingRooms ?? layout.livingRooms,
@@ -201,6 +228,7 @@
     inferMode,
     inferMarketKind,
     parseAddressRoad,
+    inferAreaBlock,
     parseFloor,
     parseFeatureFlags,
     normalizeListing,

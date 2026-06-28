@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "House Market Compare",
   "description": "Analyze sale and rent listings against asking-price and transaction market benchmarks.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": [
     "*://*.591.com.tw/*",

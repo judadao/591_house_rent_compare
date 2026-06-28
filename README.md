@@ -19,6 +19,16 @@ Chrome extension for analyzing Taiwan housing listings against nearby asking-pri
 6. For sale comparison, the result separates **待售開價行情** and **實價登錄成交行情**.
 7. For rent listings, the result shows **租屋行情** and estimates a rough monthly mortgage for buying a similar home.
 
+## Market Comparison Shape
+
+The panel summarizes the market by location first, then comparable conditions:
+
+- Default location range: listings within 2km when coordinates are available.
+- Fallback range: known area block, such as 府中 or 江子翠, then district, then city.
+- Shows total listings inside the range.
+- Shows price by age bucket, same-size listings, and listings matching extra conditions such as building type, room count, elevator, and parking.
+- Sale prices and transaction prices are displayed separately.
+
 The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. Automatic analysis opens normal background search tabs for current listing conditions, collects visible results, then closes those tabs.
 
 ## Development

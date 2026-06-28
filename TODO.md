@@ -18,6 +18,8 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - [x] Separate sale asking-price market from transaction market.
 - [x] Add in-page auto-display market panel.
 - [x] Add background analysis request flow for the in-page panel.
+- [x] Add location-first market slicing: 2km radius, area block fallback, district/city fallback.
+- [x] Add market counts, age buckets, same-size price, and extra-condition price summaries.
 - [x] Add Node-based parser tests and syntax checks.
 
 ## Testing Direction

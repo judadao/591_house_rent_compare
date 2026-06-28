@@ -85,3 +85,12 @@ test("builds regional search keywords from narrow to broad", () => {
     "台北市"
   ]);
 });
+
+test("infers known area block from road text", () => {
+  const listing = parser.normalizeListing({
+    title: "新北市板橋區電梯大樓",
+    description: "文化路二段 25坪 2房 總價 1800萬"
+  });
+
+  assert.equal(listing.areaBlock, "江子翠");
+});

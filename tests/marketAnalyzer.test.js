@@ -92,3 +92,30 @@ test("city scope keeps same city while allowing broader districts", () => {
   assert.equal(result.listing.count, 1);
   assert.equal(result.listing.comparables[0].id, "same-city");
 });
+
+test("market slice counts radius items and age buckets", () => {
+  const base = {
+    ...baseSale,
+    latitude: 25.033,
+    longitude: 121.565,
+    age: 8
+  };
+  const near = { ...base, id: "near", latitude: 25.034, longitude: 121.566, totalPrice: 3100, pricePerPing: 124, age: 9, marketKind: "listing" };
+  const far = { ...base, id: "far", latitude: 25.16, longitude: 121.7, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
+  const result = analyzer.analyzeMarket(base, [near, far], { radiusKm: 2 });
+
+  assert.equal(result.listing.marketSlice.scopeCount, 1);
+  assert.equal(result.listing.marketSlice.ageBuckets[0].label, "6-10年");
+  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 1);
+});
+
+test("market scope falls back to area block when coordinates are absent", () => {
+  const base = { ...baseSale, city: "新北市", district: "板橋區", areaBlock: "江子翠" };
+  const result = analyzer.analyzeMarket(base, [
+    { ...base, id: "same-block", totalPrice: 2000, pricePerPing: 80, marketKind: "listing" },
+    { ...base, id: "other-block", areaBlock: "府中", totalPrice: 1800, pricePerPing: 72, marketKind: "listing" }
+  ]);
+
+  assert.equal(result.listing.marketSlice.scopeCount, 1);
+  assert.equal(result.listing.comparables[0].id, "same-block");
+});
