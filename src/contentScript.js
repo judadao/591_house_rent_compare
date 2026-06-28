@@ -4,6 +4,10 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
+const MARKET_DATA_VERSION = 2;
+const MIN_AUTO_SCOPE_COUNT = 12;
+const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
+const autoRefreshInFlight = new Set();
 
 const text = (node) => (node ? node.textContent.replace(/\s+/g, " ").trim() : "");
 
@@ -133,6 +137,12 @@ const panelStyles = `
   #hmk-panel .hmk-body{padding:10px 12px}
   #hmk-panel .hmk-current{margin-bottom:8px;color:#475569}
   #hmk-panel .hmk-action{width:100%;margin:8px 0;background:#236f68;color:#fff}
+  #hmk-panel .hmk-toggle{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0;color:#334155}
+  #hmk-panel .hmk-toggle input{display:none}
+  #hmk-panel .hmk-slider{position:relative;width:42px;height:24px;border-radius:999px;background:#cbd5e1;flex:0 0 auto}
+  #hmk-panel .hmk-slider::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:transform .16s ease}
+  #hmk-panel .hmk-toggle input:checked + .hmk-slider{background:#236f68}
+  #hmk-panel .hmk-toggle input:checked + .hmk-slider::after{transform:translateX(18px)}
   #hmk-panel .hmk-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
   #hmk-panel .hmk-switch button{background:#e2e8f0;color:#334155}
   #hmk-panel .hmk-switch button.active{background:#236f68;color:#fff}
@@ -150,7 +160,25 @@ const panelStyles = `
 
 const analysisKey = (listing, mode) => `analysis:${listing.id || listing.url}:${mode}`;
 
-const requestNearbyAnalysis = async (listing, mode, { force = false } = {}) => {
+const staleAnalysis = (timestamps, listing, mode) =>
+  Date.now() - (timestamps[analysisKey(listing, mode)] || 0) >= AUTO_REFRESH_MS;
+
+const reportScopeCount = (report, mode) => {
+  if (!report) return 0;
+  if (mode === "sale") return Math.max(report.listing?.marketSlice?.scopeCount || 0, report.transaction?.marketSlice?.scopeCount || 0);
+  return report.rent?.marketSlice?.scopeCount || 0;
+};
+
+const shouldResetLocalData = (data) =>
+  (data.listings || []).length > 0 && data.marketDataVersion !== MARKET_DATA_VERSION;
+
+const shouldAutoAnalyze = (current, data, report, mode) => {
+  if (!staleAnalysis(data.analysisTimestamps || {}, current, mode)) return false;
+  const modeItems = (data.listings || []).filter((item) => item.mode === mode);
+  return modeItems.length < MIN_AUTO_SCOPE_COUNT || reportScopeCount(report, mode) < MIN_AUTO_SCOPE_COUNT;
+};
+
+const requestNearbyAnalysis = async (listing, mode, { force = false, reset = false } = {}) => {
   const key = analysisKey(listing, mode);
   const cooldownMs = 6 * 60 * 60 * 1000;
   const stored = await chrome.storage.local.get({ analysisTimestamps: {} });
@@ -160,17 +188,19 @@ const requestNearbyAnalysis = async (listing, mode, { force = false } = {}) => {
   }
 
   const response = await chrome.runtime.sendMessage({
-    type: "ANALYZE_NEARBY",
+    type: reset ? "RESET_AND_ANALYZE" : "ANALYZE_NEARBY",
     listing,
     analysisMode: listing.mode === "sale" ? mode : ""
   });
   if (response?.ok) {
-    await chrome.storage.local.set({
+    const nextStorage = {
       analysisTimestamps: {
         ...stored.analysisTimestamps,
         [key]: Date.now()
       }
-    });
+    };
+    if (reset || response.reset) nextStorage.marketDataVersion = MARKET_DATA_VERSION;
+    await chrome.storage.local.set(nextStorage);
   }
   return response;
 };
@@ -190,7 +220,7 @@ const marketBucketHtml = (bucket, mode) => {
   return `
     <section class="hmk-report">
       <h3>${escapeHtml(bucket.label)}</h3>
-      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，優先用鄰近捷運站；沒有站名時以區域塊/行政區估算，比價排序仍顯示距離。</p>
+      <p class="hmk-muted">範圍內物件 <strong>${escapeHtml(slice.scopeCount ?? 0)}</strong> 筆，優先用鄰近捷運站；樣本太少時自動放寬到區塊、行政區與 30km 內座標，比價排序仍顯示距離。</p>
       ${
         hasData
           ? `<p>相似案例 <strong>${bucket.count}</strong> 筆，中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>`
@@ -199,7 +229,7 @@ const marketBucketHtml = (bucket, mode) => {
       ${marketSliceHtml(slice, mode)}
       <ol>
         ${bucket.comparables
-          .slice(0, 4)
+          .slice(0, 12)
           .map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "物件")}</a><br><span class="hmk-muted">${escapeHtml(distanceText(item))} / ${escapeHtml(item.mode === "sale" ? `${wan(item.totalPrice)} / ${unitWan(analyzer.unitValue(item))}` : `${currency(item.monthlyRent)} / ${currency(analyzer.unitValue(item))}/坪`)}</span></li>`)
           .join("")}
       </ol>
@@ -257,7 +287,7 @@ const marketSliceHtml = (slice, mode) => {
 const renderInPagePanel = async (statusText = "") => {
   if (!analyzer || !chrome?.storage?.local) return;
   const current = scrapeCurrentListing();
-  const data = await chrome.storage.local.get({ listings: [], options: {}, panelMode: "" });
+  const data = await chrome.storage.local.get({ listings: [], options: {}, panelMode: "", analysisTimestamps: {}, marketDataVersion: 0, autoAnalysisEnabled: true });
   const panelMode = data.panelMode || current.mode;
   const report = analyzer.analyzeMarket(current, data.listings || [], { ...(data.options || {}), analysisMode: panelMode });
   const buckets = panelMode === "sale" ? [report.listing, report.transaction] : [report.rent];
@@ -292,6 +322,11 @@ const renderInPagePanel = async (statusText = "") => {
           ? `<div class="hmk-switch"><button data-mode="sale" class="${panelMode === "sale" ? "active" : ""}">比買房</button><button data-mode="rent" class="${panelMode === "rent" ? "active" : ""}">比租屋</button></div>`
           : ""
       }
+      <label class="hmk-toggle">
+        <span>自動分析</span>
+        <input class="hmk-auto-toggle" type="checkbox" ${data.autoAnalysisEnabled ? "checked" : ""}>
+        <span class="hmk-slider" aria-hidden="true"></span>
+      </label>
       <button class="hmk-action">分析附近行情</button>
       ${inventorySummaryHtml(data.listings || [])}
       ${statusText ? `<p class="hmk-muted">${escapeHtml(statusText)}</p>` : ""}
@@ -307,6 +342,10 @@ const renderInPagePanel = async (statusText = "") => {
       await renderInPagePanel();
     });
   });
+  panel.querySelector(".hmk-auto-toggle")?.addEventListener("change", async (event) => {
+    await chrome.storage.local.set({ autoAnalysisEnabled: event.target.checked });
+    await renderInPagePanel(event.target.checked ? "已開啟自動分析。" : "已關閉自動分析。");
+  });
   panel.querySelectorAll(".hmk-action").forEach((button) => {
     button.addEventListener("click", async () => {
       panel.querySelectorAll(".hmk-action").forEach((actionButton) => {
@@ -317,8 +356,21 @@ const renderInPagePanel = async (statusText = "") => {
       await renderInPagePanel(response?.ok ? `已收集 ${response.scraped} 筆，新增 ${response.added} 筆。` : `分析失敗：${response?.error || "未知錯誤"}`);
     });
   });
-
-  // Automatic panel rendering only reads local data. Network collection is manual to avoid opening background tabs unexpectedly.
+  const autoKey = `${current.id || current.url}:${panelMode}`;
+  if (data.autoAnalysisEnabled && !autoRefreshInFlight.has(autoKey) && (shouldResetLocalData(data) || shouldAutoAnalyze(current, data, report, panelMode))) {
+    autoRefreshInFlight.add(autoKey);
+    requestNearbyAnalysis(current, panelMode, { force: true, reset: shouldResetLocalData(data) })
+      .then((response) => {
+        autoRefreshInFlight.delete(autoKey);
+        if (response?.ok) {
+          const message = response.reset
+            ? `已自動重建本機資料，收集 ${response.scraped} 筆，新增 ${response.added} 筆。`
+            : `已自動更新行情，收集 ${response.scraped} 筆，新增 ${response.added} 筆。`;
+          renderInPagePanel(message).catch(() => {});
+        }
+      })
+      .catch(() => autoRefreshInFlight.delete(autoKey));
+  }
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

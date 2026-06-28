@@ -65,25 +65,46 @@
     return stops !== null && stops <= maxStops;
   };
 
-  const marketScopeMatch = (base, item, options = {}) => {
+  const basicScopeMatch = (base, item) => {
     if (base.mode !== item.mode) return false;
     if (base.city && item.city && base.city !== item.city) return false;
-    const maxStationStops = Number(options.maxStationStops ?? 1);
-    if (base.transitStation) {
-      if (sameOrNearbyStation(base.transitStation, item.transitStation, maxStationStops)) return true;
-      if (sameOrNearbyStation(base.transitStation, item.searchContext?.transitStation, maxStationStops)) return true;
-      if (item.transitStation || item.searchContext?.transitStation) return false;
-    }
-    if (options.regionScope === "city") return Boolean(base.city && item.city && base.city === item.city);
-    if (base.areaBlock && item.areaBlock) return base.areaBlock === item.areaBlock;
-    if (base.district && item.district) return base.district === item.district;
-    if (item.searchContext) {
-      if (base.areaBlock && item.searchContext.areaBlock) return base.areaBlock === item.searchContext.areaBlock;
-      if (base.district && item.searchContext.district) return base.district === item.searchContext.district;
-      if (base.city && item.searchContext.city) return base.city === item.searchContext.city;
-    }
-    return Boolean(base.city && item.city && base.city === item.city);
+    return true;
   };
+
+  const scopedMarketItems = (base, items, options = {}) => {
+    const maxStationStops = Number(options.maxStationStops ?? 1);
+    const minScopeCount = Number(options.minScopeCount ?? 12);
+    const radiusKm = Number(options.radiusKm ?? 30);
+    const candidates = items.filter((item) => basicScopeMatch(base, item));
+    const selected = new Map();
+    const addMatches = (matcher) => {
+      for (const item of candidates) {
+        if (matcher(item)) selected.set(item.id || item.url || JSON.stringify(item), item);
+      }
+      return selected.size >= minScopeCount;
+    };
+
+    if (base.transitStation) {
+      addMatches((item) =>
+        sameOrNearbyStation(base.transitStation, item.transitStation, maxStationStops) ||
+        sameOrNearbyStation(base.transitStation, item.searchContext?.transitStation, maxStationStops)
+      );
+      if (selected.size >= minScopeCount) return [...selected.values()];
+    }
+
+    if (base.areaBlock && addMatches((item) => item.areaBlock === base.areaBlock || item.searchContext?.areaBlock === base.areaBlock)) return [...selected.values()];
+    if (base.district && addMatches((item) => item.district === base.district || item.searchContext?.district === base.district)) return [...selected.values()];
+    if (addMatches((item) => {
+      const distance = distanceKm(base, item);
+      return distance !== null && distance <= radiusKm;
+    })) return [...selected.values()];
+    if (options.regionScope === "city" || selected.size < minScopeCount) {
+      addMatches((item) => base.city && (item.city === base.city || item.searchContext?.city === base.city));
+    }
+    return [...selected.values()];
+  };
+
+  const marketScopeMatch = (base, item, options = {}) => scopedMarketItems(base, [item], options).length > 0;
 
   const summarizeValues = (items) => {
     const primaryValues = items.map(primaryValue);
@@ -130,7 +151,7 @@
   };
 
   const sliceMarket = (base, items, options = {}) => {
-    const scopeItems = items.filter((item) => marketScopeMatch(base, item, options));
+    const scopeItems = scopedMarketItems(base, items, options);
     const sameSizeTolerance = Number(options.sameSizeTolerance ?? 0.1);
     const sameSizeItems = base.area
       ? scopeItems.filter((item) => item.area && item.area >= base.area * (1 - sameSizeTolerance) && item.area <= base.area * (1 + sameSizeTolerance))
@@ -186,7 +207,7 @@
   };
 
   const analyzeBucket = (base, items, label, options = {}) => {
-    const scopedItems = items.filter((item) => marketScopeMatch(base, item, options));
+    const scopedItems = scopedMarketItems(base, items, options);
     const comparables = scopedItems
       .filter((item) => isComparable(base, item, options))
       .map((item) => ({ ...item, distanceKm: distanceKm(base, item), similarityScore: similarityScore(base, item) }))
@@ -268,6 +289,7 @@
     stationDistance,
     sameOrNearbyStation,
     marketScopeMatch,
+    scopedMarketItems,
     summarizeValues,
     mainAreaBucketLabel,
     sliceMarket,

@@ -52,7 +52,9 @@ const createChromeMock = () => {
     options: {},
     panelEnabled: false,
     panelMode: "",
-    analysisTimestamps: {}
+    analysisTimestamps: {},
+    marketDataVersion: 2,
+    autoAnalysisEnabled: true
   };
   const sentMessages = [];
 
@@ -146,7 +148,7 @@ test("extension toggle message opens and closes the in-page panel", async () => 
 
 test("panel buttons switch comparison mode and trigger analysis", async () => {
   const { dom, chrome } = await loadContentScript();
-  chrome.storage.analysisTimestamps = { "analysis:123:sale": Date.now() };
+  chrome.storage.analysisTimestamps = { "analysis:123:sale": Date.now(), "analysis:123:rent": Date.now() };
   chrome.api.__dispatch({ type: "TOGGLE_PANEL" });
   await flush();
 
@@ -165,6 +167,8 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.equal(chrome.sentMessages.at(-1).type, "ANALYZE_NEARBY");
   assert.equal(chrome.sentMessages.at(-1).analysisMode, "rent");
   assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /已收集 3 筆/);
+
+  assert.equal(dom.window.document.querySelector(".hmk-reset"), null);
 });
 
 test("empty market sections still keep a single analyze button", async () => {
@@ -184,7 +188,7 @@ test("empty market sections still keep a single analyze button", async () => {
   assert.equal(chrome.sentMessages[0].type, "ANALYZE_NEARBY");
 });
 
-test("opening the panel does not automatically trigger network analysis", async () => {
+test("opening the panel automatically triggers analysis when local data is thin", async () => {
   const { chrome } = await loadContentScript();
   chrome.storage.analysisTimestamps = {};
 
@@ -192,5 +196,34 @@ test("opening the panel does not automatically trigger network analysis", async 
   await flush();
   await flush();
 
+  assert.equal(chrome.sentMessages.length, 1);
+  assert.equal(chrome.sentMessages[0].type, "ANALYZE_NEARBY");
+});
+
+test("opening the panel automatically rebuilds outdated local data", async () => {
+  const { chrome } = await loadContentScript();
+  chrome.storage.marketDataVersion = 0;
+  chrome.storage.analysisTimestamps = { "analysis:123:sale": Date.now() };
+
+  chrome.api.__dispatch({ type: "TOGGLE_PANEL" });
+  await flush();
+  await flush();
+
+  assert.equal(chrome.sentMessages.length, 1);
+  assert.equal(chrome.sentMessages[0].type, "RESET_AND_ANALYZE");
+});
+
+test("auto analysis slider disables automatic requests", async () => {
+  const { dom, chrome } = await loadContentScript();
+  chrome.storage.autoAnalysisEnabled = false;
+  chrome.storage.analysisTimestamps = {};
+
+  chrome.api.__dispatch({ type: "TOGGLE_PANEL" });
+  await flush();
+  await flush();
+
   assert.equal(chrome.sentMessages.length, 0);
+  const toggle = dom.window.document.querySelector(".hmk-auto-toggle");
+  assert.ok(toggle);
+  assert.equal(toggle.checked, false);
 });

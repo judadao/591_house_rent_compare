@@ -215,7 +215,7 @@ const renderMarketBucket = (bucket) => {
           : `<p class="summary">目前沒有足夠資料。請按「分析附近行情」自動補資料，或匯入/收集更多同區案例。</p>`
       }
       <ol class="comparables">
-        ${bucket.comparables.slice(0, 6).map(renderComparable).join("")}
+        ${bucket.comparables.slice(0, 12).map(renderComparable).join("")}
       </ol>
     </article>
   `;

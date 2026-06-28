@@ -106,11 +106,14 @@ test("market slice uses nearby stations and sorts comparables by km distance", (
   const farStation = { ...base, id: "far-station", transitStation: "江子翠", latitude: 25.03, longitude: 121.47, totalPrice: 2500, pricePerPing: 100, age: 25, marketKind: "listing" };
   const result = analyzer.analyzeMarket(base, [sameStationFarther, nearbyStationNearer, farStation]);
 
-  assert.equal(result.listing.marketSlice.scopeCount, 2);
-  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 2);
+  assert.equal(result.listing.marketSlice.scopeCount, 3);
+  assert.equal(result.listing.marketSlice.sameSizeSummary.count, 3);
   assert.equal(result.listing.comparables[0].id, "nearby-station-nearer");
   assert.equal(result.listing.comparables[1].id, "same-station-farther");
   assert.ok(result.listing.comparables[0].distanceKm < result.listing.comparables[1].distanceKm);
+
+  const strictResult = analyzer.analyzeMarket(base, [sameStationFarther, nearbyStationNearer, farStation], { minScopeCount: 1 });
+  assert.equal(strictResult.listing.marketSlice.scopeCount, 2);
 });
 
 test("market slice groups main area buckets including unknown", () => {
@@ -128,13 +131,16 @@ test("market slice groups main area buckets including unknown", () => {
 
 test("market scope falls back to area block when coordinates are absent", () => {
   const base = { ...baseSale, city: "新北市", district: "板橋區", areaBlock: "江子翠" };
-  const result = analyzer.analyzeMarket(base, [
+  const items = [
     { ...base, id: "same-block", totalPrice: 2000, pricePerPing: 80, marketKind: "listing" },
     { ...base, id: "other-block", areaBlock: "府中", totalPrice: 1800, pricePerPing: 72, marketKind: "listing" }
-  ]);
+  ];
+  const result = analyzer.analyzeMarket(base, items);
+  const strictResult = analyzer.analyzeMarket(base, items, { minScopeCount: 1 });
 
-  assert.equal(result.listing.marketSlice.scopeCount, 1);
-  assert.equal(result.listing.comparables[0].id, "same-block");
+  assert.equal(result.listing.marketSlice.scopeCount, 2);
+  assert.equal(strictResult.listing.marketSlice.scopeCount, 1);
+  assert.equal(strictResult.listing.comparables[0].id, "same-block");
 });
 
 test("market scope accepts inherited search context", () => {

@@ -3,6 +3,7 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
+const MARKET_DATA_VERSION = 2;
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
   new Promise((resolve, reject) => {
@@ -66,6 +67,7 @@ const upsertItems = async (items) => {
   }
   const next = [...byId.values()].sort((a, b) => Date.parse(b.collectedAt) - Date.parse(a.collectedAt));
   await storageSetItems(next);
+  await chrome.storage.local.set({ marketDataVersion: MARKET_DATA_VERSION });
   return { added: next.length - existing.length, total: next.length };
 };
 
@@ -142,6 +144,17 @@ const analyzeNearby = async (listing, requestedMode = "") => {
   return { scraped: scraped.length, added: result.added, total: result.total };
 };
 
+const resetAndAnalyzeNearby = async (listing, requestedMode = "") => {
+  await chrome.storage.local.set({
+    listings: [],
+    analysisTimestamps: {},
+    marketDataVersion: MARKET_DATA_VERSION,
+    [polling.WATCHLIST_KEY]: [],
+    [polling.POLL_STATE_KEY]: {}
+  });
+  return analyzeNearby(listing, requestedMode);
+};
+
 const pollWatchlist = async () => {
   const data = await chrome.storage.local.get({
     [polling.WATCHLIST_KEY]: [],
@@ -150,18 +163,33 @@ const pollWatchlist = async () => {
   const watchlist = data[polling.WATCHLIST_KEY] || [];
   let pollState = data[polling.POLL_STATE_KEY] || {};
   const due = polling.dueWatches(watchlist, pollState);
+  let scraped = 0;
+  let added = 0;
   for (const watch of due) {
-    pollState = polling.markPolled(pollState, watch);
+    try {
+      const result = await analyzeNearby(watch.listing, watch.analysisMode);
+      scraped += result.scraped || 0;
+      added += result.added || 0;
+    } finally {
+      pollState = polling.markPolled(pollState, watch);
+    }
   }
 
   await chrome.storage.local.set({ [polling.POLL_STATE_KEY]: pollState });
-  return { checked: due.length, scraped: 0, added: 0 };
+  return { checked: due.length, scraped, added };
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "ANALYZE_NEARBY") {
     analyzeNearby(message.listing, message.analysisMode)
       .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === "RESET_AND_ANALYZE") {
+    resetAndAnalyzeNearby(message.listing, message.analysisMode)
+      .then((result) => sendResponse({ ok: true, reset: true, ...result }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
