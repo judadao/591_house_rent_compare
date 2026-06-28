@@ -1,6 +1,6 @@
 # House Market Compare
 
-Chrome extension for analyzing Taiwan housing listings against nearby asking-price and transaction benchmarks.
+Chrome extension for analyzing 591 listings against nearby 591 asking-price/rent data and government transaction benchmarks.
 
 ## Install Locally
 
@@ -28,6 +28,13 @@ The panel summarizes the market by location first, then comparable conditions:
 - Shows total listings inside the range.
 - Shows price by age bucket, same-size listings, and listings matching extra conditions such as building type, room count, elevator, and parking.
 - Sale prices and transaction prices are displayed separately.
+
+## Data Sources
+
+- 591: sale asking prices and rental listings.
+- Government real-price registration: transaction benchmarks.
+
+Other listing sites are intentionally excluded to keep parsing stable.
 
 The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. The panel reads local data automatically; network collection only runs when you click **分析附近行情**.
 Analyzed listings are kept in a local watchlist. The background worker tracks polling intervals without opening search tabs automatically.

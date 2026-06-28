@@ -81,7 +81,7 @@ const activeTab = async () => {
 const sendToActiveTab = async (type) => {
   const tab = await activeTab();
   if (!tab?.id) throw new Error("找不到目前分頁");
-  if (!/(591|rakuya|sinyi|housefun|lvr\.land\.moi)/.test(tab.url || "")) {
+  if (!/(591|lvr\.land\.moi)/.test(tab.url || "")) {
     throw new Error("請先開啟支援的房屋網站頁面");
   }
 
@@ -136,12 +136,9 @@ const marketSearchUrls = () => {
 
   if (base.mode === "sale") {
     add("591 買屋開價", parser.buildMarketSearchUrl({ ...base, mode: "sale" }), "listing");
-    add("樂屋買屋開價", `https://www.rakuya.com.tw/search/sale?keyword=${encodeURIComponent(keywords)}`, "listing");
-    add("信義買屋開價", `https://www.sinyi.com.tw/buy/list/${encodeURIComponent(keywords)}-keyword`, "listing");
     add("實價登錄", `https://lvr.land.moi.gov.tw/`, "transaction");
   } else {
     add("591 租屋", parser.buildMarketSearchUrl({ ...base, mode: "rent" }), "listing");
-    add("樂屋租屋", `https://www.rakuya.com.tw/search/rent?keyword=${encodeURIComponent(keywords)}`, "listing");
   }
 
   return urls;

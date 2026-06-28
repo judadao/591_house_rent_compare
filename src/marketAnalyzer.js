@@ -47,6 +47,11 @@
     if (options.regionScope === "city") return Boolean(base.city && item.city && base.city === item.city);
     if (base.areaBlock && item.areaBlock) return base.areaBlock === item.areaBlock;
     if (base.district && item.district) return base.district === item.district;
+    if (item.searchContext) {
+      if (base.areaBlock && item.searchContext.areaBlock) return base.areaBlock === item.searchContext.areaBlock;
+      if (base.district && item.searchContext.district) return base.district === item.searchContext.district;
+      if (base.city && item.searchContext.city) return base.city === item.searchContext.city;
+    }
     return Boolean(base.city && item.city && base.city === item.city);
   };
 

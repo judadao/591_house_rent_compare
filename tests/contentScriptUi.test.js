@@ -134,6 +134,7 @@ test("extension toggle message opens and closes the in-page panel", async () => 
   await flush();
   assert.equal(opened.visible, true);
   assert.ok(dom.window.document.querySelector("#hmk-panel"));
+  assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /本機資料：買房開價 1 筆/);
   assert.equal(chrome.storage.panelEnabled, true);
 
   const closed = chrome.api.__dispatch({ type: "TOGGLE_PANEL" });

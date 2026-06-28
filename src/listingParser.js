@@ -72,7 +72,7 @@
   const inferMode = (partial, raw) => {
     if (partial.mode) return partial.mode;
     const url = String(partial.url || "");
-    if (/sale|buy|house|sinyi|rakuya/i.test(url)) return "sale";
+    if (/sale|buy|house/i.test(url)) return "sale";
     if (/rent/i.test(url)) return "rent";
     if (/萬\/坪|總價|售價|實價登錄|成交/.test(raw)) return "sale";
     return "rent";

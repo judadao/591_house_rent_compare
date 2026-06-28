@@ -22,6 +22,7 @@ Build a practical Chrome extension that helps compare a 591 rental listing with 
 - [x] Add market counts, age buckets, same-size price, and extra-condition price summaries.
 - [x] Add jsdom UI tests for panel toggle, mode switch, and analyze button flow.
 - [x] Add local watchlist polling state without surprise background tab crawling.
+- [x] Limit listing sources to 591 and government transaction data.
 - [x] Add Node-based parser tests and syntax checks.
 
 ## Testing Direction

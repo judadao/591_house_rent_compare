@@ -119,3 +119,23 @@ test("market scope falls back to area block when coordinates are absent", () => 
   assert.equal(result.listing.marketSlice.scopeCount, 1);
   assert.equal(result.listing.comparables[0].id, "same-block");
 });
+
+test("market scope accepts inherited search context", () => {
+  const base = { ...baseSale, city: "新北市", district: "板橋區", areaBlock: "江子翠" };
+  const result = analyzer.analyzeMarket(base, [
+    {
+      ...baseSale,
+      id: "inherited",
+      city: "",
+      district: "",
+      areaBlock: "",
+      totalPrice: 2100,
+      pricePerPing: 84,
+      marketKind: "listing",
+      searchContext: { city: "新北市", district: "板橋區", areaBlock: "江子翠" }
+    }
+  ]);
+
+  assert.equal(result.listing.marketSlice.scopeCount, 1);
+  assert.equal(result.listing.comparables[0].id, "inherited");
+});

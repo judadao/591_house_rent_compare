@@ -7,9 +7,6 @@
   "host_permissions": [
     "*://*.591.com.tw/*",
     "*://591.com.tw/*",
-    "*://*.rakuya.com.tw/*",
-    "*://*.sinyi.com.tw/*",
-    "*://*.housefun.com.tw/*",
     "*://lvr.land.moi.gov.tw/*"
   ],
   "action": {
@@ -23,9 +20,6 @@
       "matches": [
         "*://*.591.com.tw/*",
         "*://591.com.tw/*",
-        "*://*.rakuya.com.tw/*",
-        "*://*.sinyi.com.tw/*",
-        "*://*.housefun.com.tw/*",
         "*://lvr.land.moi.gov.tw/*"
       ],
       "js": ["src/listingParser.js", "src/marketAnalyzer.js", "src/contentScript.js"],

@@ -80,32 +80,43 @@ const marketSearchUrls = (base, analysisMode = base.mode) => {
       const sale591 = new URL("https://sale.591.com.tw/");
       sale591.searchParams.set("keywords", keywords);
       add(`591 買屋開價 ${keywords}`, sale591.toString(), "listing");
-      add(`樂屋買屋開價 ${keywords}`, `https://www.rakuya.com.tw/search/sale?keyword=${encodeURIComponent(keywords)}`, "listing");
-      add(`信義買屋開價 ${keywords}`, `https://www.sinyi.com.tw/buy/list/${encodeURIComponent(keywords)}-keyword`, "listing");
-      add(`好房網買屋開價 ${keywords}`, `https://buy.housefun.com.tw/buy/region/${encodeURIComponent(keywords)}`, "listing");
     } else {
       const rent591 = new URL("https://rent.591.com.tw/");
       rent591.searchParams.set("keywords", keywords);
       add(`591 租屋 ${keywords}`, rent591.toString(), "listing");
-      add(`樂屋租屋 ${keywords}`, `https://www.rakuya.com.tw/search/rent?keyword=${encodeURIComponent(keywords)}`, "listing");
     }
   }
 
   return urls;
 };
 
-const scrapeSearchTab = async (source) => {
+const enrichWithSearchContext = (item, base, mode, source) => ({
+  ...item,
+  mode,
+  city: item.city || base.city || "",
+  district: item.district || base.district || "",
+  addressRoad: item.addressRoad || base.addressRoad || "",
+  areaBlock: item.areaBlock || base.areaBlock || "",
+  latitude: item.latitude ?? null,
+  longitude: item.longitude ?? null,
+  marketKind: source.marketKind,
+  sourceLabel: source.label,
+  searchContext: {
+    city: base.city || "",
+    district: base.district || "",
+    areaBlock: base.areaBlock || "",
+    addressRoad: base.addressRoad || ""
+  }
+});
+
+const scrapeSearchTab = async (source, base, mode) => {
   const tab = await chrome.tabs.create({ url: source.url, active: false });
   try {
     await waitForTabComplete(tab.id);
     await new Promise((resolve) => setTimeout(resolve, 1800));
     await injectContentScripts(tab.id);
     const response = await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_LIST" });
-    return (response?.listings || []).map((item) => ({
-      ...item,
-      marketKind: source.marketKind,
-      sourceLabel: source.label
-    }));
+    return (response?.listings || []).map((item) => enrichWithSearchContext(item, base, mode, source));
   } finally {
     if (tab.id) await chrome.tabs.remove(tab.id);
   }
@@ -119,7 +130,7 @@ const analyzeNearby = async (listing, requestedMode = "") => {
   for (const mode of modes) {
     for (const source of marketSearchUrls(listing, mode).slice(0, 4)) {
       try {
-        scraped = scraped.concat(await scrapeSearchTab(source));
+        scraped = scraped.concat(await scrapeSearchTab(source, listing, mode));
       } catch {
         continue;
       }

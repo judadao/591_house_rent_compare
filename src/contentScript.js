@@ -78,9 +78,7 @@ const scrapeListCards = () => {
     'a[href*="rent_id="]',
     'a[href*="sale.591.com.tw"]',
     'a[href*="/home/house/detail"]',
-    'a[href*="/buy/"]',
-    'a[href*="/sale/"]',
-    'a[href*="house"]'
+    'a[href*="/sale/"]'
   ].join(",");
   const anchors = [...document.querySelectorAll(linkSelector)];
   const cards = anchors
@@ -209,6 +207,13 @@ const marketBucketHtml = (bucket, mode) => {
   `;
 };
 
+const inventorySummaryHtml = (items) => {
+  const sale = items.filter((item) => item.mode === "sale" && item.marketKind === "listing").length;
+  const transaction = items.filter((item) => item.mode === "sale" && item.marketKind === "transaction").length;
+  const rent = items.filter((item) => item.mode === "rent").length;
+  return `<p class="hmk-muted">本機資料：買房開價 ${escapeHtml(sale)} 筆 / 實價登錄 ${escapeHtml(transaction)} 筆 / 租屋 ${escapeHtml(rent)} 筆</p>`;
+};
+
 const summaryPrice = (summary, mode) => {
   if (!summary || !summary.count) return "-";
   return mode === "sale"
@@ -274,6 +279,7 @@ const renderInPagePanel = async (statusText = "") => {
           : ""
       }
       <button class="hmk-action">分析附近行情</button>
+      ${inventorySummaryHtml(data.listings || [])}
       ${statusText ? `<p class="hmk-muted">${escapeHtml(statusText)}</p>` : ""}
       ${current.mode === "rent" ? `<section class="hmk-report"><h3>買這類房每月房貸估算</h3><p>${estimatedMortgage ? `以同區買賣行情估算，30 年期、2 成自備、年利率 2.5%，每月約 <strong>${escapeHtml(currency(estimatedMortgage))}</strong>。` : "目前買賣行情資料不足，分析附近行情後會嘗試估算。"}</p></section>` : ""}
       ${buckets.map((bucket) => marketBucketHtml(bucket, panelMode)).join("")}
