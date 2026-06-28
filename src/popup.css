@@ -1,0 +1,166 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1f2933;
+  background: #f6f7f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 390px;
+  margin: 0;
+  background: #f6f7f9;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  color: #fff;
+  background: #1f5f5b;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+h2 {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #fff;
+  background: #236f68;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1a5852;
+}
+
+button.secondary {
+  color: #32404a;
+  background: #e2e8f0;
+}
+
+button.secondary:hover {
+  background: #cbd5e1;
+}
+
+header button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+main {
+  padding: 12px;
+}
+
+.status {
+  margin-bottom: 10px;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: #334155;
+  background: #e8f2f0;
+  font-size: 13px;
+}
+
+.status.error {
+  color: #842029;
+  background: #f8d7da;
+}
+
+.panel {
+  margin-bottom: 12px;
+  border: 1px solid #d8dee7;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.panel.compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel.compact h2 {
+  display: none;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 6px 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.facts dt {
+  color: #64748b;
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.summary {
+  margin-bottom: 10px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.summary strong {
+  color: #0f766e;
+}
+
+.comparables {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.comparables li {
+  padding-left: 2px;
+}
+
+.comparables a {
+  color: #1d4ed8;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.comparables a:hover {
+  text-decoration: underline;
+}

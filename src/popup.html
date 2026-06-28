@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>591 Rent Compare</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <header>
+      <h1>591 租金比較</h1>
+      <button id="refresh" title="重新讀取目前頁面">↻</button>
+    </header>
+
+    <main>
+      <section id="status" class="status">讀取目前頁面...</section>
+
+      <section class="panel">
+        <h2>目前物件</h2>
+        <dl id="currentListing" class="facts"></dl>
+        <div class="actions">
+          <button id="saveCurrent">儲存目前物件</button>
+          <button id="collectList">收集本頁列表</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>同條件比較</h2>
+        <div id="summary" class="summary"></div>
+        <ol id="comparables" class="comparables"></ol>
+      </section>
+
+      <section class="panel compact">
+        <h2>資料庫</h2>
+        <p id="storeCount">0 筆已收集</p>
+        <button id="clearStore" class="secondary">清除本機資料</button>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
