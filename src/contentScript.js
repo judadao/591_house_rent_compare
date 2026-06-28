@@ -427,7 +427,7 @@ const inventorySummaryHtml = (items) => {
 const pollStatusHtml = (status) => {
   if (!status?.message) return "";
   const message = status.state === "running"
-    ? `${status.message} 會短暫開啟非作用分頁並自動關閉。`
+    ? `${status.message}${status.message.includes("分頁") ? "" : " 會短暫開啟非作用分頁並自動關閉。"}`
     : status.message;
   return `<p class="hmk-poll ${escapeHtml(status.state || "")}">${escapeHtml(message)}</p>`;
 };
@@ -589,15 +589,15 @@ const renderInPagePanel = async (statusText = "") => {
         actionButton.textContent = "分析中...";
       });
       const response = await requestNearbyAnalysis(current, panelMode, { force: true, forceRefresh: true });
-      await renderInPagePanel(response?.ok ? "已用本機資料完成分析，背景正在更新行政區資料庫。" : `分析失敗：${response?.error || "未知錯誤"}`);
+      await renderInPagePanel(response?.ok ? "已用本機資料完成分析，背景正在運行分析，會自動開啟非作用分頁並在完成後關閉。" : `分析失敗：${response?.error || "未知錯誤"}`);
     });
   });
   const autoKey = `${current.id || current.url}:${panelMode}`;
   if (data.autoAnalysisEnabled && !autoRefreshInFlight.has(autoKey) && (shouldResetLocalData(data) || shouldAutoAnalyze(current, data, report, panelMode))) {
     autoRefreshInFlight.add(autoKey);
     panel.querySelector(".hmk-status").textContent = shouldResetLocalData(data)
-      ? "正在自動重建本機行情資料..."
-      : "正在自動分析附近行情...";
+      ? "正在自動重建本機行情資料，背景可能會短暫開啟非作用分頁..."
+      : "正在自動分析附近行情，背景可能會短暫開啟非作用分頁...";
     requestNearbyAnalysis(current, panelMode, { force: true, reset: shouldResetLocalData(data), sourceLimit: 1 })
       .then((response) => {
         autoRefreshInFlight.delete(autoKey);

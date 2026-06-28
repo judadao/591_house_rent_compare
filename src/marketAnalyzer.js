@@ -20,7 +20,8 @@
   const unitValue = (item) => {
     if (!item.area) return null;
     if (item.mode === "sale") return item.pricePerPing || (item.totalPrice ? item.totalPrice / item.area : null);
-    return item.monthlyRent ? item.monthlyRent / item.area : item.rentPerPing || null;
+    const rent = item.monthlyRent || item.price;
+    return rent ? rent / item.area : item.rentPerPing || null;
   };
 
   const primaryValue = (item) => {

@@ -219,3 +219,29 @@ test("analysis responds from local data while refreshing regional cache in backg
   assert.equal(storage.listings.length, 1);
   assert.equal(tabs.created.length, 0);
 });
+
+test("analysis marks background refresh as running before opening background tabs", async () => {
+  const listing = {
+    id: "current-rent",
+    url: "https://rent.591.com.tw/123",
+    mode: "rent",
+    city: "新北市",
+    district: "板橋區",
+    monthlyRent: 16999,
+    area: 13,
+    transitStation: "板新"
+  };
+  const { storage, sendRuntimeMessage } = loadBackground();
+
+  const response = await sendRuntimeMessage({
+    type: "ANALYZE_NEARBY",
+    listing,
+    analysisMode: "rent"
+  });
+  await flush();
+
+  assert.equal(response.ok, true);
+  assert.equal(storage.marketPollStatus.state, "running");
+  assert.match(storage.marketPollStatus.message, /背景分析/);
+  assert.match(storage.marketPollStatus.message, /分頁/);
+});

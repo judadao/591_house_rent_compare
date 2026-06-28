@@ -178,7 +178,8 @@ test("rent diff ignores stale rentPerPing and recalculates unit rent from monthl
     city: "新北市",
     district: "板橋區",
     area: 13,
-    monthlyRent: 16999,
+    monthlyRent: null,
+    price: 16999,
     rentPerPing: 18.9,
     latitude: 25.017,
     longitude: 121.476

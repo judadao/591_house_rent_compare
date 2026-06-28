@@ -313,9 +313,21 @@ const refreshRegionalMarketData = async (listing, requestedMode = "", options = 
   return { scraped: scraped.length, added: result.added, total: result.total };
 };
 
+const setMarketRefreshStatus = (state, message) =>
+  chrome.storage.local.set({
+    [polling.POLL_STATUS_KEY]: {
+      state,
+      message,
+      updatedAt: new Date().toISOString()
+    }
+  });
+
 const queueRegionalRefresh = (listing, requestedMode = "", options = {}) => {
   setTimeout(() => {
-    refreshRegionalMarketData(listing, requestedMode, options).catch(() => {});
+    setMarketRefreshStatus("running", "正在背景分析行情資料，會自動開啟非作用分頁並在完成後關閉。")
+      .then(() => refreshRegionalMarketData(listing, requestedMode, options))
+      .then((result) => setMarketRefreshStatus("done", `背景分析完成：收集 ${result.scraped || 0} 筆，新增 ${result.added || 0} 筆。`))
+      .catch((error) => setMarketRefreshStatus("idle", `背景分析失敗：${error?.message || "未知錯誤"}`));
   }, 0);
 };
 
