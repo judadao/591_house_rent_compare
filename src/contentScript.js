@@ -38,9 +38,21 @@ const getJsonLd = () => {
   return {};
 };
 
+const getNuxtCoordinates = () => {
+  const html = document.documentElement.innerHTML;
+  const match =
+    html.match(/"(2[0-6]\.\d{4,})","(12[01]\.\d{4,})"/) ||
+    html.match(/lat(?:itude)?[:=]"?(2[0-6]\.\d{4,})"?[\s\S]{0,80}lng[:=]"?(12[01]\.\d{4,})"?/i);
+  return {
+    latitude: parser.numberFrom(match?.[1]),
+    longitude: parser.numberFrom(match?.[2])
+  };
+};
+
 const scrapeCurrentListing = () => {
   const bodyText = text(document.body);
   const jsonLd = getJsonLd();
+  const nuxtCoordinates = getNuxtCoordinates();
   const title =
     text(document.querySelector("h1")) ||
     jsonLd.name ||
@@ -50,11 +62,13 @@ const scrapeCurrentListing = () => {
   const latitude =
     parser.numberFrom(jsonLd.geo?.latitude) ||
     parser.numberFrom(document.querySelector('[itemprop="latitude"]')?.content) ||
-    parser.numberFrom(getMeta("place:location:latitude"));
+    parser.numberFrom(getMeta("place:location:latitude")) ||
+    nuxtCoordinates.latitude;
   const longitude =
     parser.numberFrom(jsonLd.geo?.longitude) ||
     parser.numberFrom(document.querySelector('[itemprop="longitude"]')?.content) ||
-    parser.numberFrom(getMeta("place:location:longitude"));
+    parser.numberFrom(getMeta("place:location:longitude")) ||
+    nuxtCoordinates.longitude;
   const price =
     parser.numberFrom(text(document.querySelector('[class*="price"], [class*="Price"]'))) ||
     parser.numberFrom(jsonLd.offers?.price) ||
@@ -332,10 +346,10 @@ const rentEstimateControlsHtml = (current, options = {}) => {
         <input class="hmk-rent-plus" type="range" min="0" max="10" step="0.5" value="${escapeHtml(plus)}">
       </div>
       <div class="hmk-slider-row">
-        <label><span>距捷運</span><strong><span class="hmk-rent-radius-value">${escapeHtml(radius)}</span> km 內</strong></label>
+        <label><span>地址距離</span><strong><span class="hmk-rent-radius-value">${escapeHtml(radius)}</span> km 內</strong></label>
         <input class="hmk-rent-radius" type="range" min="0.5" max="10" step="0.5" value="${escapeHtml(radius)}">
       </div>
-      <p class="hmk-muted">預設用目前物件坪數、-0/+0 坪、距捷運 3km 內；貴幾 % 以每坪租金中位數計算。</p>
+      <p class="hmk-muted">預設用目前物件坪數、-0/+0 坪、地址距離 3km 內；貴幾 % 以每坪租金中位數計算。沒有座標的物件只列為參考。</p>
     </section>
   `;
 };

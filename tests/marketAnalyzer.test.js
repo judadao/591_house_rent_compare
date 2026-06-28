@@ -41,11 +41,13 @@ test("analyzes rent market by monthly rent and rent per ping", () => {
     type: "整層住家",
     rooms: 2,
     area: 20,
-    monthlyRent: 32000
+    monthlyRent: 32000,
+    latitude: 25.033,
+    longitude: 121.565
   };
   const result = analyzer.analyzeMarket(baseRent, [
-    { ...baseRent, id: "r1", monthlyRent: 30000 },
-    { ...baseRent, id: "r2", monthlyRent: 34000 }
+    { ...baseRent, id: "r1", monthlyRent: 30000, latitude: 25.034, longitude: 121.565 },
+    { ...baseRent, id: "r2", monthlyRent: 34000, latitude: 25.035, longitude: 121.565 }
   ]);
 
   assert.equal(result.mode, "rent");
@@ -118,15 +120,17 @@ test("rent estimate badges follow current listing area plus minus two ping", () 
     city: "新北市",
     district: "板橋區",
     area: 19,
-    monthlyRent: 30000
+    monthlyRent: 30000,
+    latitude: 25.033,
+    longitude: 121.565
   };
   const result = analyzer.analyzeMarket(baseRent, [
-    { ...baseRent, id: "area-7", area: 7, monthlyRent: 9000 },
-    { ...baseRent, id: "area-17", area: 17, monthlyRent: 28000 },
-    { ...baseRent, id: "area-19", area: 19, monthlyRent: 30000 },
-    { ...baseRent, id: "area-21", area: 21, monthlyRent: 32000 },
-    { ...baseRent, id: "area-16-9", area: 16.9, monthlyRent: 26000 },
-    { ...baseRent, id: "area-21-1", area: 21.1, monthlyRent: 34000 }
+    { ...baseRent, id: "area-7", area: 7, monthlyRent: 9000, latitude: 25.034, longitude: 121.565 },
+    { ...baseRent, id: "area-17", area: 17, monthlyRent: 28000, latitude: 25.035, longitude: 121.565 },
+    { ...baseRent, id: "area-19", area: 19, monthlyRent: 30000, latitude: 25.033, longitude: 121.566 },
+    { ...baseRent, id: "area-21", area: 21, monthlyRent: 32000, latitude: 25.036, longitude: 121.565 },
+    { ...baseRent, id: "area-16-9", area: 16.9, monthlyRent: 26000, latitude: 25.037, longitude: 121.565 },
+    { ...baseRent, id: "area-21-1", area: 21.1, monthlyRent: 34000, latitude: 25.038, longitude: 121.565 }
   ], { rentAreaMinusPing: 2, rentAreaPlusPing: 2 });
 
   assert.equal(result.rent.areaRange.label, "估算坪數：17-21坪（目標19坪，-2/+2坪）");
@@ -144,13 +148,15 @@ test("rent estimate uses custom target area minus plus and MRT radius with unit 
     district: "板橋區",
     area: 13,
     monthlyRent: 16999,
-    transitDistanceMeters: 448
+    transitDistanceMeters: 448,
+    latitude: 25.017,
+    longitude: 121.476
   };
   const result = analyzer.analyzeMarket(baseRent, [
-    { ...baseRent, id: "fit-near", area: 14, monthlyRent: 14000, transitDistanceMeters: 900 },
-    { ...baseRent, id: "fit-edge", area: 16, monthlyRent: 16000, transitDistanceMeters: 3000 },
-    { ...baseRent, id: "too-small", area: 11.9, monthlyRent: 9000, transitDistanceMeters: 500 },
-    { ...baseRent, id: "too-far", area: 14, monthlyRent: 12000, transitDistanceMeters: 3100 }
+    { ...baseRent, id: "fit-near", area: 14, monthlyRent: 14000, transitDistanceMeters: 900, latitude: 25.018, longitude: 121.476 },
+    { ...baseRent, id: "fit-edge", area: 16, monthlyRent: 16000, transitDistanceMeters: 3000, latitude: 25.04, longitude: 121.49 },
+    { ...baseRent, id: "too-small", area: 11.9, monthlyRent: 9000, transitDistanceMeters: 500, latitude: 25.018, longitude: 121.477 },
+    { ...baseRent, id: "too-far", area: 14, monthlyRent: 12000, transitDistanceMeters: 3100, latitude: 25.08, longitude: 121.54 }
   ], {
     rentEstimateArea: 14,
     rentAreaMinusPing: 1,
@@ -159,10 +165,35 @@ test("rent estimate uses custom target area minus plus and MRT radius with unit 
   });
 
   assert.equal(result.rent.areaRange.label, "估算坪數：12-15坪（目標13坪，-1/+2坪）");
-  assert.equal(result.rent.estimateScopeLabel, "估算坪數：12-15坪（目標13坪，-1/+2坪），距捷運 3km 內");
+  assert.equal(result.rent.estimateScopeLabel, "估算坪數：12-15坪（目標13坪，-1/+2坪），地址距離 3km 內");
   assert.deepEqual(result.rent.calculationComparables.map((item) => item.id), ["fit-near"]);
   assert.equal(Math.round(result.rent.medianUnit), 1000);
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, 30.8);
+});
+
+test("rent diff ignores stale rentPerPing and recalculates unit rent from monthly rent and area", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "新北市",
+    district: "板橋區",
+    area: 13,
+    monthlyRent: 16999,
+    rentPerPing: 18.9,
+    latitude: 25.017,
+    longitude: 121.476
+  };
+  const result = analyzer.analyzeMarket(baseRent, [
+    { ...baseRent, id: "near", area: 12, monthlyRent: 18960, rentPerPing: 1580, latitude: 25.018, longitude: 121.476 }
+  ], {
+    rentAreaMinusPing: 1,
+    rentAreaPlusPing: 1,
+    rentEstimateRadiusKm: 3
+  });
+
+  assert.equal(Math.round(analyzer.unitValue(baseRent)), 1308);
+  assert.equal(Math.round(result.rent.medianUnit), 1580);
+  assert.equal(Math.round(result.rent.diffPercent * 10) / 10, -17.2);
 });
 
 test("does not estimate when current listing area is unknown", () => {
@@ -186,7 +217,7 @@ test("does not estimate when current listing area is unknown", () => {
 });
 
 test("can compare a sale listing against rental market", () => {
-  const result = analyzer.analyzeMarket(baseSale, [
+  const result = analyzer.analyzeMarket({ ...baseSale, latitude: 25.033, longitude: 121.565 }, [
     {
       mode: "rent",
       marketKind: "listing",
@@ -195,7 +226,9 @@ test("can compare a sale listing against rental market", () => {
       buildingType: "電梯大樓",
       rooms: 2,
       area: 24,
-      monthlyRent: 42000
+      monthlyRent: 42000,
+      latitude: 25.034,
+      longitude: 121.565
     }
   ], { analysisMode: "rent", rentAreaMinusPing: 2, rentAreaPlusPing: 2 });
 
@@ -346,7 +379,7 @@ test("filters empty 591 search pages out of market scope", () => {
   assert.equal(result.listing.comparables.length, 1);
   assert.equal(result.listing.comparables[0].id, "real-listing");
 
-  const rentBase = { mode: "rent", city: "新北市", district: "板橋區", area: 19, monthlyRent: 30000 };
+  const rentBase = { mode: "rent", city: "新北市", district: "板橋區", area: 19, monthlyRent: 30000, latitude: 25.033, longitude: 121.565 };
   const rentResult = analyzer.analyzeMarket(rentBase, [
     {
       id: "rent-search-page",
@@ -357,7 +390,7 @@ test("filters empty 591 search pages out of market scope", () => {
       district: "板橋區",
       title: "板橋區租屋 | 新北市房屋出租 - 591租屋網"
     },
-    { ...rentBase, id: "real-rent", marketKind: "listing", area: 19, monthlyRent: 30000 }
+    { ...rentBase, id: "real-rent", marketKind: "listing", area: 19, monthlyRent: 30000, latitude: 25.034, longitude: 121.565 }
   ]);
 
   assert.equal(rentResult.rent.scopeCount, 1);

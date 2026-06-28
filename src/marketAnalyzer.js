@@ -20,7 +20,7 @@
   const unitValue = (item) => {
     if (!item.area) return null;
     if (item.mode === "sale") return item.pricePerPing || (item.totalPrice ? item.totalPrice / item.area : null);
-    return item.rentPerPing || (item.monthlyRent ? item.monthlyRent / item.area : null);
+    return item.monthlyRent ? item.monthlyRent / item.area : item.rentPerPing || null;
   };
 
   const primaryValue = (item) => {
@@ -49,10 +49,8 @@
 
   const rentRadiusMatch = (base, item, options = {}) => {
     const radiusKm = rentEstimateRadiusKm(options);
-    const meters = transitDistanceMeters(item);
-    if (Number.isFinite(meters)) return meters <= radiusKm * 1000;
     const km = distanceKm(base, item);
-    return km === null ? true : km <= radiusKm;
+    return km !== null && km <= radiusKm;
   };
 
   const autoAreaRange = (area) => {
@@ -430,7 +428,7 @@
       areaRange,
       transitDistanceBucket: rentBucket,
       estimateScopeLabel: base.mode === "rent"
-        ? `${areaRange.label}，距捷運 ${rentEstimateRadiusKm(options)}km 內`
+        ? `${areaRange.label}，地址距離 ${rentEstimateRadiusKm(options)}km 內`
         : areaRange.label,
       rentDistanceBuckets: base.mode === "rent" ? rentDistanceSummary(base, items, options) : [],
       scopeCount: scopedItems.length,

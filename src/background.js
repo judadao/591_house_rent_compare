@@ -206,7 +206,41 @@ const scrapeLoadedTab = async (tabId, source, base, mode) => {
     response = await chrome.tabs.sendMessage(tabId, { type: "SCRAPE_LIST" });
     if ((response?.listings || []).length >= 5) break;
   }
-  return (response?.listings || []).map((item) => enrichWithSearchContext(item, base, mode, source));
+  const listings = (response?.listings || []).map((item) => enrichWithSearchContext(item, base, mode, source));
+  return mode === "rent" ? enrichRentDetailCoordinates(tabId, listings) : listings;
+};
+
+const isRentDetailUrl = (url) => /^https:\/\/rent\.591\.com\.tw\/\d+(?:[/?#]|$)/.test(String(url || ""));
+
+const enrichRentDetailCoordinates = async (tabId, listings) => {
+  const candidates = listings
+    .filter((item) => isRentDetailUrl(item.url) && (!Number.isFinite(item.latitude) || !Number.isFinite(item.longitude)))
+    .slice(0, 12);
+  const byKey = new Map(listings.map((item) => [item.id || item.url, item]));
+  for (const item of candidates) {
+    try {
+      const loaded = waitForTabComplete(tabId);
+      await chrome.tabs.update(tabId, { url: item.url });
+      await loaded;
+      await injectContentScripts(tabId);
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      const response = await chrome.tabs.sendMessage(tabId, { type: "SCRAPE_CURRENT" });
+      const detail = response?.listing;
+      if (!detail) continue;
+      byKey.set(item.id || item.url, {
+        ...item,
+        latitude: Number.isFinite(detail.latitude) ? detail.latitude : item.latitude,
+        longitude: Number.isFinite(detail.longitude) ? detail.longitude : item.longitude,
+        address: detail.address || item.address || "",
+        addressRoad: detail.addressRoad || item.addressRoad || "",
+        transitStation: detail.transitStation || item.transitStation || "",
+        transitDistanceMeters: Number.isFinite(detail.transitDistanceMeters) ? detail.transitDistanceMeters : item.transitDistanceMeters
+      });
+    } catch {
+      continue;
+    }
+  }
+  return [...byKey.values()];
 };
 
 const scrapeSearchSources = async (sources, base, mode) => {
