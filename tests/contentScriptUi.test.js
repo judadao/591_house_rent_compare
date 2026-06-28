@@ -97,22 +97,24 @@ const createChromeMock = () => {
   };
 };
 
-const loadContentScript = async () => {
-  const dom = new JSDOM(
-    `<!doctype html><html><head>
+const loadContentScript = async (options = {}) => {
+  const html = options.html || `<!doctype html><html><head>
       <meta property="og:title" content="新北市板橋區江子翠電梯大樓">
       <meta name="description" content="新北市板橋區文化路二段 電梯大樓 總價 1,800萬 25坪 2房1廳1衛 屋齡 8年">
     </head><body>
       <h1>新北市板橋區江子翠電梯大樓</h1>
       <div class="price">1,800萬</div>
       <main>新北市板橋區文化路二段 電梯大樓 總價 1,800萬 25坪 2房1廳1衛 屋齡 8年</main>
-    </body></html>`,
+    </body></html>`;
+  const dom = new JSDOM(
+    html,
     {
-      url: "https://sale.591.com.tw/home/house/detail/2/123.html",
+      url: options.url || "https://sale.591.com.tw/home/house/detail/2/123.html",
       runScripts: "outside-only"
     }
   );
   const chrome = createChromeMock();
+  if (options.storage) Object.assign(chrome.storage, options.storage);
   dom.window.chrome = chrome.api;
   dom.window.setInterval = () => 0;
   dom.window.setTimeout = (fn) => {
@@ -184,6 +186,52 @@ test("panel buttons switch comparison mode and trigger analysis", async () => {
   assert.match(dom.window.document.querySelector("#hmk-panel").textContent, /已用本機資料完成分析/);
 
   assert.equal(dom.window.document.querySelector(".hmk-reset"), null);
+});
+
+test("rent panel displays current unit rent and a sane high diff", async () => {
+  const { dom, chrome } = await loadContentScript({
+    url: "https://rent.591.com.tw/2695915",
+    html: `<!doctype html><html><head>
+      <meta property="og:title" content="新北市板橋區新埔電梯大樓">
+      <meta name="description" content="新北市板橋區文化路二段 電梯大樓 租金 26,959 元 15坪 2房1廳1衛 捷運新埔站300公尺">
+    </head><body>
+      <h1>新北市板橋區新埔電梯大樓</h1>
+      <main>新北市板橋區文化路二段 電梯大樓 租金 26,959 元 15坪 2房1廳1衛 捷運新埔站300公尺</main>
+      <script>window.__NUXT__={"coords":["25.0170","121.4760"]};</script>
+    </body></html>`,
+    storage: {
+      listings: [
+        {
+          id: "sample-rent-1791",
+          url: "https://rent.591.com.tw/2686515",
+          mode: "rent",
+          marketKind: "listing",
+          title: "新北市板橋區新埔電梯大樓",
+          city: "新北市",
+          district: "板橋區",
+          buildingType: "電梯大樓",
+          rooms: 2,
+          area: 15,
+          monthlyRent: 26865,
+          latitude: 25.018,
+          longitude: 121.476,
+          collectedAt: "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      analysisTimestamps: { "analysis:2695915:rent": Date.now() },
+      autoAnalysisEnabled: false
+    }
+  });
+
+  chrome.api.__dispatch({ type: "TOGGLE_PANEL" });
+  await flush();
+
+  const text = dom.window.document.querySelector("#hmk-panel").textContent;
+  assert.match(text, /\$26,959 \/ \$1,797\/坪/);
+  assert.match(text, /\$26,865/);
+  assert.match(text, /\$1,791\/坪/);
+  assert.match(text, /偏高 0\.3%/);
+  assert.doesNotMatch(text, /偏低 0\.9%/);
 });
 
 test("empty market sections still keep a single analyze button", async () => {

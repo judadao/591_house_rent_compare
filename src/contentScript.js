@@ -359,6 +359,7 @@ const marketBucketHtml = (bucket, mode) => {
   const slice = bucket.marketSlice || {};
   const unitText = mode === "sale" ? unitWan(bucket.medianUnit) : `${currency(bucket.medianUnit)}/坪`;
   const primaryText = mode === "sale" ? wan(bucket.medianPrimary) : currency(bucket.medianPrimary);
+  const currentText = mode === "sale" ? `${wan(bucket.basePrimary)} / ${unitWan(bucket.baseUnit)}` : `${currency(bucket.basePrimary)} / ${currency(bucket.baseUnit)}/坪`;
   const pricedCount = bucket.estimateCount ?? bucket.pricedCount ?? 0;
   const areaRangeLabel = bucket.estimateScopeLabel || bucket.areaRange?.label || "權狀不限";
   const sampleWarning = pricedCount < 5
@@ -380,7 +381,7 @@ const marketBucketHtml = (bucket, mode) => {
       <p class="hmk-muted">地點範圍：優先鄰近捷運站；資料太少時放寬到區塊、行政區與 30km 內座標。估算只使用 ${escapeHtml(areaRangeLabel)}，坪數外只列為附近參考。</p>
       ${
         hasData
-          ? `<p>估算樣本中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方仍列附近物件，並標註是否納入估算。</p>`
+          ? `<p>目前 <strong>${escapeHtml(currentText)}</strong>；估算樣本中位數 <strong>${escapeHtml(primaryText)}</strong>，每坪 <strong>${escapeHtml(unitText)}</strong>${diff ? `，目前約 <strong>${escapeHtml(diff)}</strong>` : ""}。</p>${sampleWarning}<p class="hmk-muted">下方仍列附近物件，並標註是否納入估算。</p>`
           : `<p class="hmk-muted">目前本機資料不足，按上方「分析附近行情」自動抓資料。</p>`
       }
       ${mode === "rent" ? rentDistanceBucketsHtml(bucket.rentDistanceBuckets || []) : ""}

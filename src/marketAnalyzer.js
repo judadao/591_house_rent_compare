@@ -418,6 +418,8 @@
       count: comparables.length,
       pricedCount: pricedComparables.length,
       confidence: pricedComparables.length >= 12 ? "high" : pricedComparables.length >= 5 ? "medium" : "low",
+      basePrimary,
+      baseUnit,
       medianPrimary,
       medianUnit,
       p25Primary: percentile(primaryValues, 0.25),
@@ -479,11 +481,7 @@
 
   const displayDiffPercent = (value) => {
     if (!Number.isFinite(value)) return null;
-    const absolute = Math.abs(value);
-    if (value < 0 && absolute > 50 && absolute < 100) {
-      return 100 - absolute;
-    }
-    return absolute;
+    return Math.abs(value);
   };
 
   const api = {

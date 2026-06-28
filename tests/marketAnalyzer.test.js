@@ -197,10 +197,43 @@ test("rent diff ignores stale rentPerPing and recalculates unit rent from monthl
   assert.equal(Math.round(result.rent.diffPercent * 10) / 10, -17.2);
 });
 
-test("display diff converts low ratio percent to percentage points below market", () => {
-  assert.equal(Math.round(analyzer.displayDiffPercent(-98.8) * 10) / 10, 1.2);
+test("display diff shows absolute signed-delta percent without ratio conversion", () => {
+  assert.equal(Math.round(analyzer.displayDiffPercent(-98.8) * 10) / 10, 98.8);
   assert.equal(Math.round(analyzer.displayDiffPercent(-17.2) * 10) / 10, 17.2);
   assert.equal(Math.round(analyzer.displayDiffPercent(30.8) * 10) / 10, 30.8);
+});
+
+test("rent diff uses current unit rent instead of monthly median direction", () => {
+  const baseRent = {
+    mode: "rent",
+    marketKind: "listing",
+    city: "新北市",
+    district: "板橋區",
+    area: 15,
+    monthlyRent: 26959,
+    latitude: 25.017,
+    longitude: 121.476
+  };
+  const sampleRent = {
+    ...baseRent,
+    id: "unit-1791",
+    area: 15,
+    monthlyRent: 26865,
+    latitude: 25.018,
+    longitude: 121.476
+  };
+
+  const result = analyzer.analyzeMarket(baseRent, [sampleRent], {
+    rentAreaMinusPing: 2,
+    rentAreaPlusPing: 2,
+    rentEstimateRadiusKm: 3
+  });
+
+  assert.equal(Math.round(result.rent.basePrimary), 26959);
+  assert.equal(Math.round(result.rent.baseUnit), 1797);
+  assert.equal(Math.round(result.rent.medianPrimary), 26865);
+  assert.equal(Math.round(result.rent.medianUnit), 1791);
+  assert.equal(Math.round(result.rent.diffPercent * 10) / 10, 0.3);
 });
 
 test("rent estimate includes same-radius listings even when parsed district differs", () => {
