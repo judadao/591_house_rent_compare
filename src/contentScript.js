@@ -4,7 +4,7 @@ globalThis.__rentCompareContentScriptLoaded = true;
 
 const parser = globalThis.RentCompareParser;
 const analyzer = globalThis.RentCompareMarketAnalyzer;
-const MARKET_DATA_VERSION = 3;
+const MARKET_DATA_VERSION = 4;
 const MIN_AUTO_SCOPE_COUNT = 12;
 const AUTO_REFRESH_MS = 6 * 60 * 60 * 1000;
 const autoRefreshInFlight = new Set();
@@ -82,6 +82,8 @@ const scrapeListCards = () => {
     'a[href*="rent_id="]',
     'a[href*="sale.591.com.tw"]',
     'a[href*="/home/house/detail"]',
+    'a[href*="house-detail"]',
+    'a[href*="sale-detail"]',
     'a[href*="/sale/"]'
   ].join(",");
   const anchors = [...document.querySelectorAll(linkSelector)];
@@ -95,6 +97,7 @@ const scrapeListCards = () => {
       const anchor = card.querySelector(linkSelector) || card;
       const cardText = text(card);
       const url = absoluteUrl(anchor.href || "");
+      if (/\/\?(?:.*&)?(?:regionid|section)=|sale\.591\.com\.tw\/?$/.test(url)) return null;
       if (!url || !/(元|萬|坪|房|套房|雅房|大樓|公寓|華廈)/.test(cardText)) return null;
 
       return parser.normalizeListing(

@@ -3,7 +3,7 @@ importScripts("listingParser.js", "pollingStore.js");
 const parser = globalThis.RentCompareParser;
 const polling = globalThis.HouseMarketPollingStore;
 const POLL_ALARM_NAME = "house-market-poll";
-const MARKET_DATA_VERSION = 3;
+const MARKET_DATA_VERSION = 4;
 
 const waitForTabComplete = (tabId, timeoutMs = 15000) =>
   new Promise((resolve, reject) => {
@@ -135,7 +135,7 @@ const analyzeNearby = async (listing, requestedMode = "") => {
   let scraped = [];
   const modes = requestedMode ? [requestedMode] : listing.mode === "rent" ? ["rent", "sale"] : ["sale"];
   for (const mode of modes) {
-    for (const source of marketSearchUrls(listing, mode).slice(0, 4)) {
+    for (const source of marketSearchUrls(listing, mode).slice(0, 8)) {
       try {
         scraped = scraped.concat(await scrapeSearchTab(source, listing, mode));
       } catch {

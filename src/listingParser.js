@@ -67,7 +67,11 @@
 
   const inferType = (sourceText) => RENT_TYPES.find((type) => String(sourceText || "").includes(type)) || "";
 
-  const inferBuildingType = (sourceText) => BUILDING_TYPES.find((type) => String(sourceText || "").includes(type)) || "";
+  const inferBuildingType = (sourceText) => {
+    const raw = String(sourceText || "");
+    if (raw.includes("華夏")) return "華廈";
+    return BUILDING_TYPES.find((type) => raw.includes(type)) || "";
+  };
 
   const inferMode = (partial, raw) => {
     if (partial.mode) return partial.mode;
@@ -234,6 +238,8 @@
     };
     add(listing.city, listing.district, listing.transitStation ? `${listing.transitStation}捷運` : "");
     add(listing.city, listing.district, listing.transitStation ? `${listing.transitStation}站` : "");
+    add(listing.city, listing.district, listing.buildingType);
+    add(listing.city, listing.district, listing.buildingType, listing.rooms ? `${listing.rooms}房` : "");
     add(listing.city, listing.district, listing.addressRoad);
     add(listing.city, listing.district);
     add(listing.city);

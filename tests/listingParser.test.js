@@ -61,6 +61,16 @@ test("normalizes sale listing values separately from rent values", () => {
   assert.equal(listing.age, 12);
 });
 
+test("normalizes common Huaxia typo to Huasha building type", () => {
+  const listing = parser.normalizeListing({
+    url: "https://sale.591.com.tw/home/house/detail/2/778.html",
+    title: "新北市板橋區華夏",
+    description: "總價 1800萬 25坪"
+  });
+
+  assert.equal(listing.buildingType, "華廈");
+});
+
 test("parses and infers main area from public facility ratio", () => {
   const direct = parser.normalizeListing({
     url: "https://sale.591.com.tw/home/house/detail/2/778.html",
@@ -98,10 +108,12 @@ test("builds regional search keywords from narrow to broad", () => {
     city: "台北市",
     district: "信義區",
     transitStation: "市政府",
+    buildingType: "華廈",
     addressRoad: "松仁路"
   }), [
     "台北市 信義區 市政府捷運",
     "台北市 信義區 市政府站",
+    "台北市 信義區 華廈",
     "台北市 信義區 松仁路",
     "台北市 信義區",
     "台北市"

@@ -53,7 +53,7 @@ const createChromeMock = () => {
     panelEnabled: false,
     panelMode: "",
     analysisTimestamps: {},
-    marketDataVersion: 3,
+    marketDataVersion: 4,
     autoAnalysisEnabled: true
   };
   const sentMessages = [];
