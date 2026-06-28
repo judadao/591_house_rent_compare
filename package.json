@@ -1,0 +1,11 @@
+{
+  "name": "591-rent-compare",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Chrome extension for collecting and comparing 591 rental listings locally.",
+  "scripts": {
+    "check": "node --check src/listingParser.js && node --check src/contentScript.js && node --check src/popup.js",
+    "test": "node --test"
+  },
+  "devDependencies": {}
+}

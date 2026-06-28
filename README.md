@@ -15,16 +15,30 @@ Chrome extension for collecting 591 rental listings while browsing and comparing
 2. Click **儲存目前物件** to save the current listing.
 3. Open a 591 search result page and click **收集本頁列表**.
 4. Return to a listing page to see same-area, same-type, similar-size rent comparisons.
+5. Adjust **比較條件** when you want looser or stricter matches.
+6. Click **匯出 CSV** to export the local dataset for spreadsheet analysis.
 
 The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run background crawling.
+
+## Development
+
+```bash
+npm test
+npm run check
+```
+
+`npm test` runs parser unit tests. `npm run check` validates JavaScript syntax for extension scripts.
 
 ## Project Structure
 
 - `manifest.json`: Chrome MV3 extension configuration.
+- `src/listingParser.js`: Shared listing parsing and normalization logic.
 - `src/contentScript.js`: Extracts listing data from 591 pages.
 - `src/popup.html`: Extension popup markup.
 - `src/popup.css`: Popup styling.
 - `src/popup.js`: Storage, comparison logic, and UI behavior.
+- `tests/listingParser.test.js`: Parser unit tests.
+- `TODO.md`: Completed work, testing direction, and future backlog.
 
 ## Notes
 

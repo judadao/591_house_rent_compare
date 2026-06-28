@@ -8,8 +8,11 @@
   </head>
   <body>
     <header>
-      <h1>591 租金比較</h1>
-      <button id="refresh" title="重新讀取目前頁面">↻</button>
+      <div>
+        <h1>591 租金比較</h1>
+        <p>同區同條件快速估價</p>
+      </div>
+      <button id="refresh" class="icon-button" title="重新讀取目前頁面">↻</button>
     </header>
 
     <main>
@@ -18,9 +21,31 @@
       <section class="panel">
         <h2>目前物件</h2>
         <dl id="currentListing" class="facts"></dl>
+        <div id="quality" class="quality warn">請在 591 物件頁或搜尋頁使用。</div>
         <div class="actions">
-          <button id="saveCurrent">儲存目前物件</button>
-          <button id="collectList">收集本頁列表</button>
+          <button id="saveCurrent">儲存物件</button>
+          <button id="collectList">收集列表</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>比較條件</h2>
+          <button id="resetOptions" class="link-button">重設</button>
+        </div>
+        <label>
+          坪數範圍
+          <select id="areaTolerance">
+            <option value="0.1">±10%</option>
+            <option value="0.2">±20%</option>
+            <option value="0.3">±30%</option>
+            <option value="0.5">±50%</option>
+          </select>
+        </label>
+        <div class="checks">
+          <label><input id="matchDistrict" type="checkbox"> 同行政區</label>
+          <label><input id="matchType" type="checkbox"> 同型態</label>
+          <label><input id="matchRooms" type="checkbox"> 同房數</label>
         </div>
       </section>
 
@@ -31,9 +56,14 @@
       </section>
 
       <section class="panel compact">
-        <h2>資料庫</h2>
-        <p id="storeCount">0 筆已收集</p>
-        <button id="clearStore" class="secondary">清除本機資料</button>
+        <div>
+          <h2>資料庫</h2>
+          <p id="storeCount">0 筆已收集</p>
+        </div>
+        <div class="mini-actions">
+          <button id="exportCsv" class="secondary">匯出 CSV</button>
+          <button id="clearStore" class="danger">清除</button>
+        </div>
       </section>
     </main>
 

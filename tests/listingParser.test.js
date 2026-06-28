@@ -1,0 +1,44 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const parser = require("../src/listingParser");
+
+test("parses Taiwan city and district from listing text", () => {
+  assert.deepEqual(parser.parseRegion("台北市 大安區 復興南路"), {
+    city: "台北市",
+    district: "大安區"
+  });
+});
+
+test("parses layout, floor, and listing id", () => {
+  assert.deepEqual(parser.parseLayout("整層住家 2房1廳1衛 18坪"), {
+    rooms: 2,
+    livingRooms: 1,
+    bathrooms: 1
+  });
+  assert.deepEqual(parser.parseFloor("樓層 5/12樓"), {
+    floor: 5,
+    totalFloors: 12
+  });
+  assert.equal(parser.listingIdFromUrl("https://rent.591.com.tw/rent-detail-123456.html"), "123456");
+});
+
+test("normalizes a full listing record", () => {
+  const listing = parser.normalizeListing({
+    url: "https://rent.591.com.tw/rent-detail-555.html",
+    title: "台北市信義區整層住家",
+    description: "租金 32,000 元/月 25.5坪 2房1廳1衛 有電梯 可開伙 不可養寵物 車位"
+  });
+
+  assert.equal(listing.id, "555");
+  assert.equal(listing.price, 32000);
+  assert.equal(listing.area, 25.5);
+  assert.equal(listing.city, "台北市");
+  assert.equal(listing.district, "信義區");
+  assert.equal(listing.type, "整層住家");
+  assert.equal(listing.rooms, 2);
+  assert.equal(listing.hasElevator, true);
+  assert.equal(listing.allowsCooking, true);
+  assert.equal(listing.allowsPet, false);
+  assert.equal(listing.hasParking, true);
+});
