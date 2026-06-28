@@ -7,5 +7,7 @@
     "check": "node --check src/listingParser.js && node --check src/marketAnalyzer.js && node --check src/contentScript.js && node --check src/background.js && node --check src/popup.js",
     "test": "node --test"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
 }

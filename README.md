@@ -39,6 +39,7 @@ npm run check
 ```
 
 `npm test` runs parser unit tests. `npm run check` validates JavaScript syntax for extension scripts.
+The test suite also includes jsdom-based UI tests for the in-page panel toggle, mode switch, and analyze button flow.
 
 ## Project Structure
 
