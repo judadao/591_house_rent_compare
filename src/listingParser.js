@@ -77,14 +77,11 @@
     if (partial.mode) return partial.mode;
     const url = String(partial.url || "");
     if (/rent/i.test(url)) return "rent";
-    if (/sale|buy|house/i.test(url)) return "sale";
-    if (/萬\/坪|總價|售價|實價登錄|成交/.test(raw)) return "sale";
     return "rent";
   };
 
   const inferMarketKind = (partial, raw) => {
     if (partial.marketKind) return partial.marketKind;
-    if (/實價登錄|成交|交易年月|移轉/.test(raw)) return "transaction";
     return "listing";
   };
 
@@ -178,15 +175,14 @@
       partial.monthlyRent ||
       (mode === "rent" && partial.price && partial.price >= 1000 ? partial.price : null) ||
       (mode === "rent" ? parseMonthlyRent(raw) : null);
-    const totalPrice = partial.totalPrice || (mode === "sale" ? numberFrom(raw.match(/([\d,]+(?:\.\d+)?)\s*萬/)?.[1]) : null);
+    const totalPrice = null;
     const pricePerPing =
       partial.pricePerPing ||
-      (mode === "sale" ? numberFrom(raw.match(/([\d,]+(?:\.\d+)?)\s*萬\/坪/)?.[1]) : null) ||
-      (mode === "sale" && totalPrice && area ? totalPrice / area : null);
+      null;
     const rentPerPing =
       partial.rentPerPing ||
       (mode === "rent" && monthlyRent && area ? monthlyRent / area : null);
-    const price = mode === "rent" ? (monthlyRent || partial.price || null) : (partial.price || totalPrice);
+    const price = monthlyRent || partial.price || null;
     const url = partial.url || fallbackUrl;
     const latitude = partial.latitude ?? partial.lat ?? null;
     const longitude = partial.longitude ?? partial.lng ?? null;
@@ -273,7 +269,7 @@
 
   const buildMarketSearchUrl = (listing) => {
     const keywords = buildBroadMarketSearchKeywords(listing) || buildMarketSearchKeywords(listing);
-    const url = new URL(listing.mode === "sale" ? "https://sale.591.com.tw/" : "https://rent.591.com.tw/");
+    const url = new URL("https://rent.591.com.tw/");
     if (keywords) url.searchParams.set("keywords", keywords);
     return url.toString();
   };

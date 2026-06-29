@@ -1,16 +1,27 @@
 {
   "manifest_version": 3,
-  "name": "House Market Compare",
-  "description": "Analyze sale and rent listings against asking-price and transaction market benchmarks.",
-  "version": "0.7.0",
-  "permissions": ["activeTab", "storage", "scripting", "tabs", "alarms"],
+  "name": "591 Rent Average Compare",
+  "description": "Show the average rent on 591 rental search pages and mark each listing above or below that average.",
+  "version": "0.8.0",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
-    "*://*.591.com.tw/*",
-    "*://591.com.tw/*",
-    "*://lvr.land.moi.gov.tw/*"
+    "*://rent.591.com.tw/*"
   ],
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
   "action": {
-    "default_title": "開關房價行情面板"
+    "default_title": "重新標註本頁租金平均",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
   },
   "background": {
     "service_worker": "src/background.js"
@@ -18,11 +29,9 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.591.com.tw/*",
-        "*://591.com.tw/*",
-        "*://lvr.land.moi.gov.tw/*"
+        "*://rent.591.com.tw/*"
       ],
-      "js": ["src/listingParser.js", "src/marketAnalyzer.js", "src/contentScript.js"],
+      "js": ["src/listingParser.js", "src/contentScript.js"],
       "run_at": "document_idle"
     }
   ]

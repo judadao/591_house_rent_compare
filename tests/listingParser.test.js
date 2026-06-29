@@ -75,27 +75,11 @@ test("parses compact MRT distance text from rent pages", () => {
   assert.equal(listing.monthlyRent, 16999);
 });
 
-test("normalizes sale listing values separately from rent values", () => {
-  const listing = parser.normalizeListing({
-    url: "https://sale.591.com.tw/home/house/detail/2/777.html",
-    title: "台北市信義區電梯大樓",
-    description: "總價 3,200萬 25坪 2房1廳1衛 單價 128萬/坪 屋齡 12年"
-  });
-
-  assert.equal(listing.mode, "sale");
-  assert.equal(listing.marketKind, "listing");
-  assert.equal(listing.totalPrice, 3200);
-  assert.equal(listing.pricePerPing, 128);
-  assert.equal(listing.monthlyRent, null);
-  assert.equal(listing.buildingType, "電梯大樓");
-  assert.equal(listing.age, 12);
-});
-
 test("normalizes common Huaxia typo to Huasha building type", () => {
   const listing = parser.normalizeListing({
-    url: "https://sale.591.com.tw/home/house/detail/2/778.html",
+    url: "https://rent.591.com.tw/778",
     title: "新北市板橋區華夏",
-    description: "總價 1800萬 25坪"
+    description: "租金 18,000 元/月 25坪"
   });
 
   assert.equal(listing.buildingType, "華廈");
@@ -103,14 +87,14 @@ test("normalizes common Huaxia typo to Huasha building type", () => {
 
 test("parses and infers main area from public facility ratio", () => {
   const direct = parser.normalizeListing({
-    url: "https://sale.591.com.tw/home/house/detail/2/778.html",
+    url: "https://rent.591.com.tw/778",
     title: "新北市板橋區捷運江子翠站電梯大樓",
-    description: "總價 3000萬 30坪 主建物 20坪 公設比 33%"
+    description: "租金 30,000 元/月 30坪 主建物 20坪 公設比 33%"
   });
   const inferred = parser.normalizeListing({
-    url: "https://sale.591.com.tw/home/house/detail/2/779.html",
+    url: "https://rent.591.com.tw/779",
     title: "新北市板橋區近江子翠站電梯大樓",
-    description: "總價 3000萬 30坪 公設比 33%"
+    description: "租金 30,000 元/月 30坪 公設比 33%"
   });
 
   assert.equal(direct.mainArea, 20);
@@ -153,7 +137,7 @@ test("builds regional search keywords from narrow to broad", () => {
 test("infers known area block from road text", () => {
   const listing = parser.normalizeListing({
     title: "新北市板橋區電梯大樓",
-    description: "文化路二段 25坪 2房 總價 1800萬"
+    description: "文化路二段 25坪 2房 租金 18,000 元/月"
   });
 
   assert.equal(listing.areaBlock, "江子翠");

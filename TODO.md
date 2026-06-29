@@ -1,42 +1,33 @@
 # TODO
 
-## Scope
+## Current Scope
 
-Build a practical Chrome extension that helps compare a 591 rental listing with locally collected listings from the same market.
+Build a focused Chrome extension for 591 rental search pages:
+
+- Calculate the average monthly rent from listings visible on the current search page.
+- Show the page average inline.
+- Mark each listing price as above, below, or equal to that average.
+- Keep only a small popup for enable/disable and rescan controls.
+- Remove floating-panel, sale-comparison, local-cache, and background-crawling UI.
 
 ## Completed In This Pass
 
-- [x] Keep the extension local-first and avoid background crawling.
-- [x] Split listing parsing into a testable shared module.
-- [x] Improve extraction for city, district, layout, floor, rent type, and feature flags.
-- [x] Add configurable comparison options for area range, district, rent type, and room count.
-- [x] Add data quality hints for missing price, area, region, type, or room count.
-- [x] Add CSV export for collected local listings.
-- [x] Add a one-click same-area market search button.
-- [x] Add a manual button to open the generated 591 market search page.
-- [x] Add sale/rent mode normalization.
-- [x] Separate sale asking-price market from transaction market.
-- [x] Add in-page auto-display market panel.
-- [x] Add background analysis request flow for the in-page panel.
-- [x] Add location-first market slicing: 2km radius, area block fallback, district/city fallback.
-- [x] Add market counts, age buckets, same-size price, and extra-condition price summaries.
-- [x] Add jsdom UI tests for panel toggle, mode switch, and analyze button flow.
-- [x] Add local watchlist polling state without surprise background tab crawling.
-- [x] Limit listing sources to 591 and government transaction data.
-- [x] Add Node-based parser tests and syntax checks.
+- [x] Replaced the old in-page market panel with inline search-result annotations.
+- [x] Limited manifest host permissions to `rent.591.com.tw`.
+- [x] Added a small extension popup toggle for turning annotations on and off.
+- [x] Simplified the background script to only trigger a manual rescan from the extension icon.
+- [x] Updated tests for search-page average badges and the new icon behavior.
+- [x] Updated README to document the new rental-search-only direction.
 
 ## Testing Direction
 
-- Parser unit tests cover core text extraction without needing Chrome or 591 live pages.
-- Popup and content scripts receive syntax checks with `node --check`.
-- Manual browser testing should cover a 591 detail page, a 591 search results page, and a non-591 page error state.
-- Manual browser testing should verify **搜尋同區行情** opens a background result tab, collects visible listings, closes the tab, and refreshes comparison results.
-- Manual browser testing should verify the extension icon toggles the in-page panel and the enabled state persists across listing page navigation.
-- Future integration tests should use saved HTML fixtures from 591 pages to catch markup changes.
+- Parser unit tests cover reusable text extraction.
+- Content-script jsdom tests cover page summary and per-card badges.
+- Background tests cover manual rescan messaging and content-script injection fallback.
+- Manual browser testing should cover 591 rent search pages after changing filters, pagination, and keyword searches.
 
 ## Later Improvements
 
-- Add import/export JSON backup for Chrome local storage.
-- Add per-city market filters and sort controls.
-- Add saved comparison presets, for example "strict same building type" and "loose area benchmark".
-- Add fixture-based tests once representative 591 HTML snapshots are available.
+- Add fixture-based tests using saved 591 rent search HTML snapshots.
+- Support averages by currently visible sorted/filtered result page only, with a clear label if infinite-scroll results are appended.
+- Consider optional averages by rent type or ping bucket if the UI can stay inline and unobtrusive.

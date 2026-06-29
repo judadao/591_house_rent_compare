@@ -3,73 +3,32 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>House Market Compare</title>
+    <title>591 Rent Average Compare</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
-    <header>
-      <div>
-        <h1>房價行情比較</h1>
-        <p>買房分開看開價與實價登錄，租屋看附近租金</p>
-      </div>
-      <button id="refresh" class="icon-button" title="重新讀取目前頁面">↻</button>
-    </header>
-
     <main>
-      <section id="status" class="status">讀取目前頁面...</section>
-
-      <section class="panel">
-        <h2>目前物件</h2>
-        <dl id="currentListing" class="facts"></dl>
-        <div id="quality" class="quality warn">請在 591 物件頁或搜尋頁使用。</div>
-        <div class="actions">
-          <button id="saveCurrent">儲存物件</button>
-          <button id="autoMarketSearch">分析附近行情</button>
-          <button id="collectList" class="secondary">收集本頁列表</button>
-          <button id="openMarketSearch" class="secondary">開啟搜尋頁</button>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="section-title">
-          <h2>比較條件</h2>
-          <button id="resetOptions" class="link-button">重設</button>
-        </div>
-        <label>
-          坪數範圍
-          <select id="areaTolerance">
-            <option value="0.1">±10%</option>
-            <option value="0.2">±20%</option>
-            <option value="0.25" selected>±25%</option>
-            <option value="0.3">±30%</option>
-          </select>
-        </label>
-        <div class="checks">
-          <label><input id="matchDistrict" type="checkbox"> 同行政區</label>
-          <label><input id="matchType" type="checkbox"> 同型態</label>
-          <label><input id="matchRooms" type="checkbox"> 同房數</label>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>行情分析</h2>
-        <div id="marketReports" class="market-reports"></div>
-      </section>
-
-      <section class="panel compact">
+      <header>
+        <img src="../assets/icons/icon-32.png" width="32" height="32" alt="">
         <div>
-          <h2>資料庫</h2>
-          <p id="storeCount">0 筆已收集</p>
+          <h1>591 租金平均</h1>
+          <p>搜尋頁平均比較</p>
         </div>
-        <div class="mini-actions">
-          <button id="exportCsv" class="secondary">匯出 CSV</button>
-          <button id="clearStore" class="danger">清除</button>
-        </div>
-      </section>
+      </header>
+
+      <label class="toggle-row">
+        <span>
+          <strong>啟用標註</strong>
+          <small>顯示本頁平均與高低標籤</small>
+        </span>
+        <input id="enabled" type="checkbox">
+      </label>
+
+      <button id="rescan" type="button">重新掃描目前頁面</button>
+      <button id="support" class="support-button" type="button">請我喝咖啡</button>
+      <p id="status" class="status">讀取中...</p>
     </main>
 
-    <script src="listingParser.js"></script>
-    <script src="marketAnalyzer.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

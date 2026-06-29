@@ -1,13 +1,15 @@
 {
   "name": "house-market-compare",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
-  "description": "Chrome extension for collecting and comparing 591 rental listings locally.",
+  "license": "MIT",
+  "description": "Chrome extension for comparing 591 rental search results against the page average.",
   "scripts": {
-    "check": "node --check src/listingParser.js && node --check src/marketAnalyzer.js && node --check src/pollingStore.js && node --check src/contentScript.js && node --check src/background.js && node --check src/popup.js",
+    "check": "node --check src/listingParser.js && node --check src/contentScript.js && node --check src/background.js && node --check src/popup.js",
     "test": "node --test"
   },
   "devDependencies": {
-    "jsdom": "^29.1.1"
+    "jsdom": "^29.1.1",
+    "sharp": "^0.35.2"
   }
 }

@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #1f2933;
-  background: #f5f7f8;
+  color: #1f2937;
+  background: #ffffff;
 }
 
 * {
@@ -10,273 +10,94 @@
 }
 
 body {
-  width: 410px;
+  width: 300px;
   margin: 0;
-  background: #f5f7f8;
+}
+
+main {
+  padding: 14px;
 }
 
 header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  color: #fff;
-  background: #1f5f5b;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 h1,
-h2,
 p {
   margin: 0;
 }
 
 h1 {
   font-size: 17px;
-  font-weight: 750;
+  line-height: 1.25;
 }
 
-header p {
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 12px;
-}
-
-h2 {
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-button,
-select {
-  font: inherit;
-}
-
-button {
-  border: 0;
-  border-radius: 6px;
-  padding: 8px 10px;
-  color: #fff;
-  background: #236f68;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #1a5852;
-}
-
-button.secondary {
-  color: #32404a;
-  background: #e2e8f0;
-}
-
-button.secondary:hover {
-  background: #cbd5e1;
-}
-
-button.danger {
-  color: #842029;
-  background: #f8d7da;
-}
-
-button.danger:hover {
-  background: #f1b8bf;
-}
-
-.icon-button {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.link-button {
-  padding: 0;
-  color: #1d4ed8;
-  background: transparent;
-  font-size: 12px;
-}
-
-.link-button:hover {
-  background: transparent;
-  text-decoration: underline;
-}
-
-main {
-  padding: 12px;
-}
-
+header p,
+small,
 .status {
-  margin-bottom: 10px;
-  border-radius: 6px;
-  padding: 9px 10px;
-  color: #334155;
-  background: #e8f2f0;
-  font-size: 13px;
+  color: #64748b;
+  font-size: 12px;
 }
 
-.status.error {
-  color: #842029;
-  background: #f8d7da;
-}
-
-.panel {
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 12px;
   border: 1px solid #d8dee7;
   border-radius: 8px;
-  padding: 12px;
-  background: #fff;
+  padding: 10px;
+  background: #f8fafc;
 }
 
-.panel.compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.section-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.facts {
+.toggle-row span {
   display: grid;
-  grid-template-columns: 74px 1fr;
-  gap: 6px 8px;
-  margin: 0;
-  font-size: 13px;
+  gap: 2px;
 }
 
-.facts dt {
-  color: #64748b;
+.toggle-row input {
+  width: 42px;
+  height: 24px;
+  accent-color: #0f766e;
+  cursor: pointer;
 }
 
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-weight: 600;
-}
-
-.quality {
-  margin-top: 10px;
-  border-radius: 6px;
-  padding: 7px 8px;
-  font-size: 12px;
-}
-
-.quality.ok {
-  color: #166534;
-  background: #dcfce7;
-}
-
-.quality.warn {
-  color: #92400e;
-  background: #fef3c7;
-}
-
-.actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-label {
-  display: grid;
-  gap: 5px;
-  color: #475569;
-  font-size: 13px;
-}
-
-select {
+button {
   width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 7px 8px;
-  background: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #ffffff;
+  background: #0f766e;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
 }
 
-.checks {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
+button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.support-button {
+  margin-top: 8px;
+  color: #0f172a;
+  background: #f6c453;
+}
+
+.support-button:hover {
+  background: #efb72e;
+}
+
+.status {
   margin-top: 10px;
+  min-height: 18px;
 }
 
-.checks label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.summary {
-  margin-bottom: 10px;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.summary strong {
-  color: #0f766e;
-}
-
-.market-metrics {
-  display: grid;
-  grid-template-columns: 108px 1fr;
-  gap: 5px 8px;
-  margin: 0 0 10px;
-  font-size: 13px;
-}
-
-.market-metrics dt {
-  color: #64748b;
-}
-
-.market-metrics dd {
-  margin: 0;
-  color: #0f766e;
-  font-weight: 700;
-}
-
-.market-metrics .diff-high {
-  color: #dc2626;
-}
-
-.market-metrics .diff-low {
-  color: #2563eb;
-}
-
-.comparables {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-}
-
-.comparables li {
-  padding-left: 2px;
-}
-
-.comparables a {
-  color: #1d4ed8;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.comparables a:hover {
-  text-decoration: underline;
-}
-
-.comparables span {
-  color: #475569;
-}
-
-.mini-actions {
-  display: flex;
-  gap: 6px;
-  flex: 0 0 auto;
+.status.error {
+  color: #b42318;
 }

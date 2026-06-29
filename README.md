@@ -1,17 +1,26 @@
-# 591 House Rent Compare
+# 591 Rent Average Compare
 
-Chrome MV3 extension for comparing a 591 listing against locally collected 591 market data. It focuses on Taiwan housing decisions: buying compares asking prices and transaction benchmarks separately, while renting compares nearby rent by similar size and distance.
+A small Chrome extension for 591 rental search pages. It reads the rents visible on the current result page, calculates the page average, and marks each listing price as higher, lower, or equal to that average.
+
+The goal is simple: when you are scanning rentals, you can immediately see which listings are expensive or cheap compared with the current search results.
 
 ## Features
 
-- Auto panel on supported 591 listing pages.
-- Compare sale listings against sale asking prices and government transaction data separately.
-- Compare sale listings against rental market to estimate same-location rental yield context.
-- Compare rent listings by current listing size and address distance.
-- Shows current rent, current rent per ping, estimated market rent, market rent per ping, and high/low percentage.
-- Local-first cache with 15-minute polling guard to avoid excessive background tabs.
-- Only uses 591 and government real-price registration data.
-- Keeps detailed sections collapsed by default: rent estimate controls, rent distance buckets, main-area buckets, and age buckets.
+- Works on `rent.591.com.tw` rental search pages.
+- Calculates average monthly rent from visible result cards.
+- Shows a compact page summary above the result list.
+- Adds a larger inline badge next to each listing price.
+- Recalculates when 591 updates results after filtering, sorting, or client-side navigation.
+- The extension popup provides an on/off toggle and a manual rescan button.
+- No floating panel, no account, no background crawling, no sale-price comparison.
+
+## Example
+
+If the current page average is `$20,000`, the extension marks listings like:
+
+- `$15,000` -> `低於平均 $5,000 (25%)`
+- `$20,000` -> `等於平均`
+- `$25,000` -> `高於平均 $5,000 (25%)`
 
 ## Install Locally
 
@@ -19,55 +28,26 @@ Chrome MV3 extension for comparing a 591 listing against locally collected 591 m
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select this repository folder.
-5. Open a supported 591 rent or sale detail page.
-6. Click the extension icon to toggle the in-page panel.
+5. Open a 591 rental search page, for example `https://rent.591.com.tw/list`.
 
 ## Usage
 
-Open a 591 listing page such as:
+Open a 591 rental search result page. The extension automatically inserts:
 
-- `https://rent.591.com.tw/<listing-id>`
-- `https://sale.591.com.tw/home/house/detail/...`
+- One average-rent summary for the current page.
+- One high/low/equal badge beside each parsed rent price.
 
-The panel reads the current listing automatically. Click **分析附近行情** to collect or refresh local comparables. During background analysis, the extension may open non-active tabs and close them after scraping. The panel shows status text while this is happening.
+Click the extension icon to open the popup. You can turn annotations on or off, or force a rescan if the page does not update after changing filters.
 
-For rent listings, open **租金估算條件** if you want to adjust:
+## Privacy
 
-- `- 坪數`: lower area tolerance.
-- `+ 坪數`: upper area tolerance.
-- `地址距離`: max distance in km, using parsed coordinates.
+This extension only reads the current 591 rental search page in your browser. It does not store listing data, open background result tabs, require login credentials, or upload data to any server.
 
-Initial controls are collapsed, but once you adjust rent controls they stay open after recalculation.
+## Support
 
-## Rent Estimate Rules
+If this saves you time while looking for rentals, you can support the project here:
 
-Rent estimates use comparable listings that match:
-
-- Same mode: rent.
-- Same city when available.
-- Area range based on the current listing, default `-2/+2` ping.
-- Address distance within the selected km range when coordinates are available.
-
-The displayed market rent is normalized as:
-
-```text
-market monthly rent = median rent per ping * current listing ping
-```
-
-This prevents small listings from making a larger listing's monthly median look too low. High/low percentage is calculated from rent per ping. For example, if current rent is `$1,797/坪` and market median is `$1,791/坪`, it displays roughly `偏高 0.3%`.
-
-## Sale Estimate Rules
-
-Sale mode separates:
-
-- 591 sale asking price listings.
-- Government transaction benchmarks.
-
-The comparison prioritizes nearby MRT/area context when available, then area block, district, city, and coordinate distance fallback. Price summaries include same-size, main-area, feature, age, and main-area buckets.
-
-## Data & Privacy
-
-Data is stored in Chrome local storage. The extension does not require login credentials and does not upload listing data to a server. Local data can become stale or incorrect when 591 markup changes, so parser tests cover known page shapes and regressions.
+https://www.buymeacoffee.com/dd_7777
 
 ## Development
 
@@ -89,19 +69,20 @@ Run tests:
 npm test
 ```
 
-The test suite includes parser, market analyzer, polling, background, and jsdom content-script UI tests.
-
 ## Project Structure
 
 - `manifest.json`: Chrome extension manifest.
-- `src/contentScript.js`: In-page panel, current page scraping, UI rendering.
-- `src/background.js`: Background analysis and tab orchestration.
-- `src/listingParser.js`: Listing normalization and text parsing.
-- `src/marketAnalyzer.js`: Market slicing, estimates, and diff calculations.
-- `src/pollingStore.js`: Local watch and polling helpers.
-- `src/popup.*`: Extension popup UI.
+- `assets/icons/`: Extension icon source and generated Chrome icon sizes.
+- `src/contentScript.js`: Search-page average calculation and inline badges.
+- `src/background.js`: Extension icon handler for manual rescans.
+- `src/popup.*`: Small popup with enable/disable and rescan controls.
+- `src/listingParser.js`: Shared rent listing parsing helpers.
 - `tests/`: Node and jsdom tests.
 
 ## Known Limits
 
-591 page markup can change. If a page shows impossible values, such as `$240 / $16/坪` for rent, update parser selectors and add a regression test using that page shape.
+591 page markup can change. If badges stop appearing or prices are parsed incorrectly, update the card and price selectors in `src/contentScript.js`, then add a jsdom regression test for the new page shape.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
