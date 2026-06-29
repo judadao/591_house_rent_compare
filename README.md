@@ -1,68 +1,107 @@
-# House Market Compare
+# 591 House Rent Compare
 
-Chrome extension for analyzing 591 listings against nearby 591 asking-price/rent data and government transaction benchmarks.
+Chrome MV3 extension for comparing a 591 listing against locally collected 591 market data. It focuses on Taiwan housing decisions: buying compares asking prices and transaction benchmarks separately, while renting compares nearby rent by similar size and distance.
+
+## Features
+
+- Auto panel on supported 591 listing pages.
+- Compare sale listings against sale asking prices and government transaction data separately.
+- Compare sale listings against rental market to estimate same-location rental yield context.
+- Compare rent listings by current listing size and address distance.
+- Shows current rent, current rent per ping, estimated market rent, market rent per ping, and high/low percentage.
+- Local-first cache with 15-minute polling guard to avoid excessive background tabs.
+- Only uses 591 and government real-price registration data.
+- Keeps detailed sections collapsed by default: rent estimate controls, rent distance buckets, main-area buckets, and age buckets.
 
 ## Install Locally
 
 1. Open Chrome and go to `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
-4. Select this repository folder: `D:\JUDD\personal_pro\591_houseRent_comp`.
+4. Select this repository folder.
+5. Open a supported 591 rent or sale detail page.
+6. Click the extension icon to toggle the in-page panel.
 
 ## Usage
 
-1. Open a supported housing listing page.
-2. Click the extension icon to toggle the in-page market panel.
-3. The panel stays enabled while you switch listing pages until you close it.
-4. Click **分析附近行情** in the page panel to collect nearby comparable listings.
-5. For sale listings, switch between **比買房** and **比租屋**.
-6. For sale comparison, the result separates **待售開價行情** and **實價登錄成交行情**.
-7. For rent listings, the result shows **租屋行情** and estimates a rough monthly mortgage for buying a similar home.
+Open a 591 listing page such as:
 
-## Market Comparison Shape
+- `https://rent.591.com.tw/<listing-id>`
+- `https://sale.591.com.tw/home/house/detail/...`
 
-The panel summarizes the market by location first, then comparable conditions:
+The panel reads the current listing automatically. Click **分析附近行情** to collect or refresh local comparables. During background analysis, the extension may open non-active tabs and close them after scraping. The panel shows status text while this is happening.
 
-- Default location range: listings within 15km when coordinates are available.
-- Fallback range: known area block, such as 府中 or 江子翠, then district, then city.
-- Shows total listings inside the range.
-- Shows price by age bucket, same-size listings, and listings matching extra conditions such as building type, room count, elevator, and parking.
-- Sale prices and transaction prices are displayed separately.
+For rent listings, open **租金估算條件** if you want to adjust:
 
-## Data Sources
+- `- 坪數`: lower area tolerance.
+- `+ 坪數`: upper area tolerance.
+- `地址距離`: max distance in km, using parsed coordinates.
 
-- 591: sale asking prices and rental listings.
-- Government real-price registration: transaction benchmarks.
+Initial controls are collapsed, but once you adjust rent controls they stay open after recalculation.
 
-Other listing sites are intentionally excluded to keep parsing stable.
+## Rent Estimate Rules
 
-The extension stores data in Chrome local storage only. It does not log in, bypass verification, or run continuous background crawling. The panel reads local data automatically; network collection only runs when you click **分析附近行情**.
-Analyzed listings are kept in a local watchlist. The background worker tracks polling intervals without opening search tabs automatically.
+Rent estimates use comparable listings that match:
+
+- Same mode: rent.
+- Same city when available.
+- Area range based on the current listing, default `-2/+2` ping.
+- Address distance within the selected km range when coordinates are available.
+
+The displayed market rent is normalized as:
+
+```text
+market monthly rent = median rent per ping * current listing ping
+```
+
+This prevents small listings from making a larger listing's monthly median look too low. High/low percentage is calculated from rent per ping. For example, if current rent is `$1,797/坪` and market median is `$1,791/坪`, it displays roughly `偏高 0.3%`.
+
+## Sale Estimate Rules
+
+Sale mode separates:
+
+- 591 sale asking price listings.
+- Government transaction benchmarks.
+
+The comparison prioritizes nearby MRT/area context when available, then area block, district, city, and coordinate distance fallback. Price summaries include same-size, main-area, feature, age, and main-area buckets.
+
+## Data & Privacy
+
+Data is stored in Chrome local storage. The extension does not require login credentials and does not upload listing data to a server. Local data can become stale or incorrect when 591 markup changes, so parser tests cover known page shapes and regressions.
 
 ## Development
 
+Install dependencies:
+
 ```bash
-npm test
+npm install
+```
+
+Run syntax checks:
+
+```bash
 npm run check
 ```
 
-`npm test` runs parser unit tests. `npm run check` validates JavaScript syntax for extension scripts.
-The test suite also includes jsdom-based UI tests for the in-page panel toggle, mode switch, and analyze button flow.
+Run tests:
+
+```bash
+npm test
+```
+
+The test suite includes parser, market analyzer, polling, background, and jsdom content-script UI tests.
 
 ## Project Structure
 
-- `manifest.json`: Chrome MV3 extension configuration.
-- `src/listingParser.js`: Shared listing parsing and normalization logic.
-- `src/marketAnalyzer.js`: Comparable scoring and market benchmark calculations.
-- `src/pollingStore.js`: Local watchlist and polling schedule helpers.
-- `src/background.js`: Background search orchestration for the in-page panel.
-- `src/contentScript.js`: Extracts listing data from 591 pages.
-- `src/popup.html`: Extension popup markup.
-- `src/popup.css`: Popup styling.
-- `src/popup.js`: Storage, comparison logic, and UI behavior.
-- `tests/listingParser.test.js`: Parser unit tests.
-- `TODO.md`: Completed work, testing direction, and future backlog.
+- `manifest.json`: Chrome extension manifest.
+- `src/contentScript.js`: In-page panel, current page scraping, UI rendering.
+- `src/background.js`: Background analysis and tab orchestration.
+- `src/listingParser.js`: Listing normalization and text parsing.
+- `src/marketAnalyzer.js`: Market slicing, estimates, and diff calculations.
+- `src/pollingStore.js`: Local watch and polling helpers.
+- `src/popup.*`: Extension popup UI.
+- `tests/`: Node and jsdom tests.
 
-## Notes
+## Known Limits
 
-591 page markup may change. If extraction becomes inaccurate, update selectors and parsing rules in `src/contentScript.js`.
+591 page markup can change. If a page shows impossible values, such as `$240 / $16/坪` for rent, update parser selectors and add a regression test using that page shape.
