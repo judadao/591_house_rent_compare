@@ -87,10 +87,13 @@ test("annotates 591 rental search cards against the page average", async () => {
   const document = dom.window.document;
   const summary = document.querySelector("#rent-avg-compare-summary");
   const badges = [...document.querySelectorAll(".rent-avg-compare-badge")];
+  const styleText = document.querySelector("#rent-avg-compare-style").textContent;
 
   assert.match(summary.textContent, /本頁租金平均 \$20,000/);
   assert.match(summary.textContent, /採計 3 筆/);
   assert.equal(badges.length, 3);
+  assert.match(styleText, /@media \(max-width:640px\)/);
+  assert.match(styleText, /max-width:calc\(100vw - 32px\)/);
   assert.match(badges[0].textContent, /低於平均 \$10,000 \(50%\)/);
   assert.match(badges[1].textContent, /等於平均/);
   assert.match(badges[2].textContent, /高於平均 \$10,000 \(50%\)/);

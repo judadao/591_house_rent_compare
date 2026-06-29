@@ -36,12 +36,16 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      #${SUMMARY_ID}{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#334155;font:16px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      #${SUMMARY_ID}{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%;box-sizing:border-box;margin:10px 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#334155;font:16px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-wrap:anywhere}
       #${SUMMARY_ID} strong{color:#0f766e}
-      .${BADGE_CLASS}{display:inline-flex;align-items:center;vertical-align:middle;margin-left:8px;padding:4px 8px;border-radius:4px;font:15px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:750;white-space:nowrap}
+      .${BADGE_CLASS}{display:inline-flex;align-items:center;vertical-align:middle;max-width:100%;box-sizing:border-box;margin-left:8px;padding:4px 8px;border-radius:4px;font:15px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:750;white-space:nowrap}
       .${BADGE_CLASS}.is-high{color:#b42318;background:#fee4e2}
       .${BADGE_CLASS}.is-low{color:#175cd3;background:#dbeafe}
       .${BADGE_CLASS}.is-average{color:#166534;background:#dcfce7}
+      @media (max-width:640px){
+        #${SUMMARY_ID}{display:grid;grid-template-columns:1fr;gap:4px;margin:8px 0;padding:9px 10px;font-size:14px;line-height:1.35}
+        .${BADGE_CLASS}{display:flex;width:max-content;max-width:calc(100vw - 32px);margin:4px 0 0;padding:4px 7px;font-size:13px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+      }
     `;
     document.documentElement.appendChild(style);
   };
