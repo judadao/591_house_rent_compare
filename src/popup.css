@@ -10,8 +10,7 @@
 }
 
 body {
-  width: min(300px, 100vw);
-  min-width: 0;
+  width: 300px;
   margin: 0;
 }
 
@@ -101,36 +100,4 @@ button:disabled {
 
 .status.error {
   color: #b42318;
-}
-
-@media (max-width: 360px) {
-  body {
-    width: 100vw;
-  }
-
-  main {
-    padding: 12px;
-  }
-
-  header {
-    align-items: flex-start;
-  }
-
-  h1 {
-    font-size: 16px;
-  }
-
-  .toggle-row {
-    align-items: flex-start;
-    gap: 10px;
-    padding: 9px;
-  }
-
-  .toggle-row input {
-    flex: 0 0 auto;
-  }
-
-  button {
-    padding: 9px 10px;
-  }
 }
