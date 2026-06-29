@@ -16,6 +16,8 @@ The goal is simple: when you are scanning rentals, you can immediately see which
 
 ## Example
 
+![591 Rent Average Compare demo](assets/screenshots/rent-average-demo.png)
+
 If the current page average is `$20,000`, the extension marks listings like:
 
 - `$15,000` -> `低於平均 $5,000 (25%)`
